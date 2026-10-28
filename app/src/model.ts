@@ -170,7 +170,8 @@ export function createRemoteModel(base: string, token: string, onStatus?: (msg: 
           const body = (await r.text().catch(() => '')).slice(0, 80);
           let open = '';
           try { const h = await fetch(`${root}/health`, { cache: 'no-store' }); open = `health=${h.status}:${(await h.text()).slice(0, 20)}`; } catch (e: any) { open = `health threw ${e?.message ?? e}`; }
-          throw new Error(`${r.status} body="${body}" ${open}`);
+          const t = token || '';
+          throw new Error(`${r.status} body="${body}" ${open} · token in this build: ${t ? t.slice(0, 4) + '…' + t.slice(-4) + ' (' + t.length + ' chars)' : 'EMPTY'} · url=${r.url.replace(/token=[^&]*/, 'token=…')}`);
         })
         .then((remote: Partial<HudState>) => {
           if (!healthy) onStatus?.(`live · ${root}`);
