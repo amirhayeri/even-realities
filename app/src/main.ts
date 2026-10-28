@@ -34,14 +34,22 @@ async function main() {
     ['no-strip', () => { const p: any = pageSpec(); delete p.menuObject; p.imageObject = p.imageObject.slice(0, 2); p.containerTotalNum = 5; return p; }],
     ['no-zorder', () => { const p: any = pageSpec(); delete p.menuObject; p.imageObject = p.imageObject.slice(0, 2); p.containerTotalNum = 5; for (const c of [...p.imageObject, ...p.textObject]) delete c.zOrderIndex; return p; }],
     ['text-only', () => { const p: any = pageSpec(); delete p.menuObject; p.imageObject = []; p.containerTotalNum = p.textObject.length; for (const c of p.textObject) delete c.zOrderIndex; return p; }],
+    // The docs' own first-app page. If this fails, nothing can draw: another app
+    // (Even Terminal?) holds the glasses, or the Even app is too old.
+    ['hello', () => ({ containerTotalNum: 1, textObject: [{ xPosition: 0, yPosition: 0, width: 576, height: 288, containerID: 1, containerName: 'main', content: 'Hello from G2!', isEventCapture: 1 }] })],
   ];
   let created = '';
+  const report: string[] = [];
   for (const [name, make] of variants) {
-    const r = await bridge.createStartUpPageContainer(make());
-    console.log('[hud] create', name, StartUpPageCreateResult[r] ?? r);
+    let r: any;
+    try { r = await bridge.createStartUpPageContainer(make()); } catch (e: any) { r = 'threw ' + (e?.message ?? e); }
+    const label = typeof r === 'number' ? (StartUpPageCreateResult[r] ?? String(r)) : String(r);
+    report.push(`${name}:${label}`);
+    console.log('[hud] create', name, label);
     if (r === StartUpPageCreateResult.success) { created = name; break; }
   }
-  if (!created) { status('Page create failed on every layout; see console'); return; }
+  if (!created) { status('Page create failed on every layout — ' + report.join('  ') + ' — is Even Terminal still open on the glasses?'); return; }
+  if (created === 'hello') { status('Only the bare Hello page works — ' + report.join('  ')); return; }
   if (created !== 'full') status(`Lens on reduced layout "${created}" (firmware rejected the full one)`);
   const hasStrip = created === 'full' || created === 'no-menu';
   const hasTiles = created !== 'text-only';
