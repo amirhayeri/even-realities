@@ -96,6 +96,36 @@ source <(even-terminal complete zsh)    # or bash
 even-terminal complete fish > ~/.config/fish/completions/even-terminal.fish
 ```
 
+## Lessons from the first setup (2026-10-27)
+
+- **Log in first.** `even-terminal claude` showed "Not logged in" in the corner.
+  Run `/login` inside that window. Phone sessions use the same credentials,
+  so nothing works until this is done.
+- **Input without the ring = the laptop keyboard.** Anything spoken to the
+  glasses or typed in the app's chat goes to Even AI, not Claude. Drive from
+  the `even-terminal claude` window; the glasses mirror it.
+- **"Exit Even AI" on the phone:** double-tap the right temple touchpad,
+  single-tap to confirm. A single press or hold reopens Even AI.
+- **Server log shows only `/api/info` and `/api/sessions` polling** means the
+  app hasn't opened a session. Open Terminal in the app and tap the session.
+- **Tailscale "probe failed" on the phone** with both devices Connected:
+  `tailscale set --shields-up` was on. Turn it off:
+  `tailscale set --shields-up=false`. The App Store build lives at
+  `/Applications/Tailscale.app/Contents/MacOS/Tailscale` if `tailscale` is
+  not on PATH.
+- **Tailscale VPN prompt** on Mac and iPhone is Apple boilerplate. Only
+  `100.x.x.x` traffic uses the tunnel. Verify with `netstat -rn | grep default`:
+  the first IPv4 default must stay on `en0`. Never enable an exit node.
+- **tmux detach** is Ctrl+B, release, then **D** alone. Ctrl+D does nothing.
+
+## Persistent server
+
+```bash
+brew install tmux
+tmux new -s even      # then run: even-terminal
+# detach: Ctrl+B, then D     reattach: tmux attach -t even
+```
+
 ## Troubleshooting
 
 - `claude-sync` (default shared-session mode) is experimental. If input,
