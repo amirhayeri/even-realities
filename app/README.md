@@ -35,6 +35,23 @@ npm run qr           # prints a QR for the dev server
 Even app → Settings → Developer mode → scan the QR. The HUD opens on the
 glasses and in the Even app. Hot reload works: edit, save, the lens updates.
 
+## Lessons from the first run on glass (2026-10-28)
+
+- `createStartUpPageContainer` returned `invalid` for every layout, even Even's
+  own hello page, until containers were built as SDK class instances with all
+  border fields set (`borderWidth`, `borderColor`, `borderRadius`,
+  `paddingLength`). The host rejects a text container missing them with the
+  same code as a bad layout. `src/layout.ts` does this now.
+- The Even WebView dropped the `Authorization` header; the token also travels
+  as `?token=` and the Worker accepts either.
+- The Scan QR entry appears in the Even Hub tab only after signing in on
+  hub.evenrealities.com, force-quitting the app, and reopening. Your build may
+  label it Prototype mode.
+- Bisect tool: https://sabowl.sakura.ne.jp/g2/helloworld/ is a known-good
+  community app with its own QR. If it draws and yours doesn't, it's your app.
+- `./hud state|start|end|pause|skip|hr N|token` drives the endpoint using the
+  token in `.env`, so nothing gets retyped.
+
 ## Controls on the glasses
 | Gesture | Action |
 |---|---|
