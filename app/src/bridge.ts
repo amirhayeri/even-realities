@@ -16,6 +16,8 @@ export interface GlassesBridge {
   onEvenHubEvent(cb: (e: EvenHubEvent) => void): () => void;
   /** Glasses battery percent, when the host reports it. */
   onBattery(cb: (pct: number) => void): void;
+  /** Raw host call, for diagnostics: returns whatever the Even app replied, unparsed. */
+  raw(method: string, params: any): Promise<any>;
   readonly kind: 'even' | 'preview';
 }
 
@@ -38,6 +40,7 @@ export async function getBridge(): Promise<GlassesBridge> {
         b.getDeviceInfo().then(d => { const p = d?.status?.batteryLevel; if (typeof p === 'number') cb(p); }).catch(() => {});
         b.onDeviceStatusChanged(st => { if (typeof st.batteryLevel === 'number') cb(st.batteryLevel); });
       },
+      raw: (method, params) => b.callEvenApp(method, params),
     };
   }
   return createPreviewBridge();
@@ -159,5 +162,6 @@ function createPreviewBridge(): GlassesBridge {
     },
     onEvenHubEvent(cb) { listeners.add(cb); return () => listeners.delete(cb); },
     onBattery() { /* no glasses in the preview */ },
+    async raw() { return 'preview'; },
   };
 }

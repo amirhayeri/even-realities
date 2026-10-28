@@ -2,7 +2,7 @@
 // over four text lines (zone, Spotify, next track + Move ring, action bar).
 // Falls back to a one-line Ambient screen when no workout is active.
 
-import { OsEventTypeList, StartUpPageCreateResult, type EvenHubEvent } from '@evenrealities/even_hub_sdk';
+import { CreateStartUpPageContainer, OsEventTypeList, StartUpPageCreateResult, type EvenHubEvent } from '@evenrealities/even_hub_sdk';
 import { getBridge } from './bridge';
 import { createMockModel, createRemoteModel, type Model } from './model';
 import { drawActivityTile, drawBlankTile, drawHrTile, drawSongStrip, newStrip, newTile, toPng } from './draw';
@@ -48,7 +48,14 @@ async function main() {
     console.log('[hud] create', name, label);
     if (r === StartUpPageCreateResult.success) { created = name; break; }
   }
-  if (!created) { status('Page create failed on every layout — ' + report.join('  ') + ' — is Even Terminal still open on the glasses?'); return; }
+  if (!created) {
+    // Ask the phone directly and show its unparsed answer, plus what it says about the glasses.
+    let rawCreate = '', dev = '';
+    try { rawCreate = JSON.stringify(await bridge.raw('createStartUpPageContainer', new CreateStartUpPageContainer(variants[variants.length - 1][1]()).toJson())); } catch (e: any) { rawCreate = 'threw ' + (e?.message ?? e); }
+    try { dev = JSON.stringify(await bridge.raw('getGlassesInfo', {})); } catch (e: any) { dev = 'threw ' + (e?.message ?? e); }
+    status(`Page create refused. Phone said: ${rawCreate} · glasses: ${dev} · layouts: ${report.join(' ')}`);
+    return;
+  }
   if (created === 'hello') { status('Only the bare Hello page works — ' + report.join('  ')); return; }
   if (created !== 'full') status(`Lens on reduced layout "${created}" (firmware rejected the full one)`);
   const hasStrip = created === 'full' || created === 'no-menu';
