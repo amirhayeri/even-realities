@@ -15,7 +15,7 @@ SPOTIFY_PLAYLIST_URI = "spotify:playlist:3qSwBVv3oXiuSECFUTJ7c8"
 WEATHER_LAT = "49.2827"
 WEATHER_LON = "-123.1207"
 WEATHER_CITY = "Vancouver"
-HR_MAX = "185"
+HR_MAX = "180"
 ZONE_GOAL_SEC = "1800"
 # GLUCOSE_URL = "https://.../latest.json"   # optional, see README for the shape
 
