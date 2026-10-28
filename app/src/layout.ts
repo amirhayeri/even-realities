@@ -3,7 +3,7 @@
 // padded with spaces measured in pixels with @evenrealities/pretext.
 
 import { getTextWidth } from '@evenrealities/pretext';
-import { ImageContainerProperty, MenuContainerProperty, TextContainerProperty } from '@evenrealities/even_hub_sdk';
+import { ImageContainerProperty, MenuContainerProperty, MenuItemProperty, TextContainerProperty } from '@evenrealities/even_hub_sdk';
 import { type HudState } from './model';
 
 export const SCREEN_W = 576;
@@ -46,10 +46,10 @@ export function pageSpec() {
     ],
     menuObject: new MenuContainerProperty({
       menuItems: [
-        { itemID: MENU.pause, itemName: 'Pause' },
-        { itemID: MENU.resume, itemName: 'Resume' },
-        { itemID: MENU.skip, itemName: 'Skip track' },
-        { itemID: MENU.exit, itemName: 'Exit' },
+        new MenuItemProperty({ itemID: MENU.pause, itemName: 'Pause' }),
+        new MenuItemProperty({ itemID: MENU.resume, itemName: 'Resume' }),
+        new MenuItemProperty({ itemID: MENU.skip, itemName: 'Skip track' }),
+        new MenuItemProperty({ itemID: MENU.exit, itemName: 'Exit' }),
       ],
     }),
   };
