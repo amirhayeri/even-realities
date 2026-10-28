@@ -164,7 +164,14 @@ export function createRemoteModel(base: string, token: string, onStatus?: (msg: 
       if (t - lastFetch < pollMs) return;
       lastFetch = t;
       fetch(`${root}/state${q}`, { cache: 'no-store', headers })
-        .then(r => r.ok ? r.json() : Promise.reject(new Error(String(r.status))))
+        .then(async r => {
+          if (r.ok) return r.json();
+          // Diagnose: is it our Worker answering, or something in front of it?
+          const body = (await r.text().catch(() => '')).slice(0, 80);
+          let open = '';
+          try { const h = await fetch(`${root}/health`, { cache: 'no-store' }); open = `health=${h.status}:${(await h.text()).slice(0, 20)}`; } catch (e: any) { open = `health threw ${e?.message ?? e}`; }
+          throw new Error(`${r.status} body="${body}" ${open}`);
+        })
         .then((remote: Partial<HudState>) => {
           if (!healthy) onStatus?.(`live · ${root}`);
           healthy = true; lastRemoteAt = Date.now();
