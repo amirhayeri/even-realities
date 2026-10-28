@@ -2,7 +2,7 @@
 // over four text lines (zone, Spotify, next track + Move ring, action bar).
 // Falls back to a one-line Ambient screen when no workout is active.
 
-import { CreateStartUpPageContainer, OsEventTypeList, StartUpPageCreateResult, type EvenHubEvent } from '@evenrealities/even_hub_sdk';
+import { CreateStartUpPageContainer, OsEventTypeList, StartUpPageCreateResult, TextContainerProperty, type EvenHubEvent } from '@evenrealities/even_hub_sdk';
 import { getBridge } from './bridge';
 import { createMockModel, createRemoteModel, type Model } from './model';
 import { drawActivityTile, drawBlankTile, drawHrTile, drawSongStrip, newStrip, newTile, toPng } from './draw';
@@ -36,7 +36,7 @@ async function main() {
     ['text-only', () => { const p: any = pageSpec(); delete p.menuObject; p.imageObject = []; p.containerTotalNum = p.textObject.length; for (const c of p.textObject) delete c.zOrderIndex; return p; }],
     // The docs' own first-app page. If this fails, nothing can draw: another app
     // (Even Terminal?) holds the glasses, or the Even app is too old.
-    ['hello', () => ({ containerTotalNum: 1, textObject: [{ xPosition: 0, yPosition: 0, width: 576, height: 288, containerID: 1, containerName: 'main', content: 'Hello from G2!', isEventCapture: 1 }] })],
+    ['hello', () => ({ containerTotalNum: 1, textObject: [new TextContainerProperty({ xPosition: 0, yPosition: 0, width: 576, height: 288, borderWidth: 0, borderColor: 5, paddingLength: 4, containerID: 1, containerName: 'main', content: 'Hello from G2!', isEventCapture: 1 })] })],
   ];
   let created = '';
   const report: string[] = [];

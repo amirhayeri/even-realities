@@ -3,6 +3,7 @@
 // padded with spaces measured in pixels with @evenrealities/pretext.
 
 import { getTextWidth } from '@evenrealities/pretext';
+import { ImageContainerProperty, MenuContainerProperty, TextContainerProperty } from '@evenrealities/even_hub_sdk';
 import { type HudState } from './model';
 
 export const SCREEN_W = 576;
@@ -19,31 +20,38 @@ export const DIM = 3; // textColor 0..4 for the secondary row
 export const MENU = { pause: 1, resume: 2, skip: 3, exit: 4 } as const;
 
 export function pageSpec() {
-  const line = (id: number, name: string, row: number, capture = 0) => ({
-    containerID: id, containerName: name,
+  // SDK class instances with every field the host parses, exactly like Even's
+  // first-app sample: the host rejects a text container that omits the border
+  // fields, and does so with the same "invalid" code as a bad layout.
+  const line = (id: number, name: string, row: number, capture = 0) => new TextContainerProperty({
     xPosition: TEXT_X, yPosition: ROW_Y[row], width: TEXT_W, height: LINE_H + 3,
-    content: ' ', isEventCapture: capture, zOrderIndex: id, paddingLength: 0, borderWidth: 0,
+    borderWidth: 0, borderColor: 0, borderRadius: 0, paddingLength: 0,
+    containerID: id, containerName: name,
+    content: ' ', textColor: 4, isEventCapture: capture, zOrderIndex: id,
+  });
+  const image = (id: number, name: string, x: number, y: number, w: number, h: number) => new ImageContainerProperty({
+    xPosition: x, yPosition: y, width: w, height: h, containerID: id, containerName: name, zOrderIndex: id,
   });
   return {
     containerTotalNum: 6,
     imageObject: [
-      { containerID: IDS.hr, containerName: NAMES.hr, xPosition: 0, yPosition: 0, width: 288, height: 144, zOrderIndex: IDS.hr },
-      { containerID: IDS.act, containerName: NAMES.act, xPosition: 288, yPosition: 0, width: 288, height: 144, zOrderIndex: IDS.act },
-      { containerID: IDS.song, containerName: NAMES.song, xPosition: STRIP.x, yPosition: STRIP.y, width: STRIP.w, height: STRIP.h, zOrderIndex: IDS.song },
+      image(IDS.hr, NAMES.hr, 0, 0, 288, 144),
+      image(IDS.act, NAMES.act, 288, 0, 288, 144),
+      image(IDS.song, NAMES.song, STRIP.x, STRIP.y, STRIP.w, STRIP.h),
     ],
     textObject: [
       line(IDS.l1, NAMES.l1, 0, 1),
       line(IDS.l2, NAMES.l2, 1),
       line(IDS.clock, NAMES.clock, 2),
     ],
-    menuObject: {
+    menuObject: new MenuContainerProperty({
       menuItems: [
         { itemID: MENU.pause, itemName: 'Pause' },
         { itemID: MENU.resume, itemName: 'Resume' },
         { itemID: MENU.skip, itemName: 'Skip track' },
         { itemID: MENU.exit, itemName: 'Exit' },
       ],
-    },
+    }),
   };
 }
 
