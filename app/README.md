@@ -106,3 +106,18 @@ src/queue.ts    one glasses write in flight, latest wins per container
 ```
 Hard limits respected: 6 of 12 containers, 2 of 4 images at 288×144, text
 upgraded only when changed, images once per second.
+
+## Beta route (no QR, survives a locked phone)
+
+```bash
+cd app
+npm run build                                   # reads .env, bakes endpoint + token in
+npx evenhub pack app.json dist -o even-hud.ehpk --check
+npx evenhub create even-hud.ehpk --name "Bio HUD" --tagline "Live workout, music and glucose on your lens" --icon icon.png
+npx evenhub promote 0.1.0 --to beta
+npx evenhub testers add YOUR_EVEN_EMAIL
+```
+Accept the tester invite on the phone (email link), then install Bio HUD from
+the Even Hub tab. Later builds: bump `version` in `app.json`, `npm run build`,
+`npm run pack`, `npx evenhub upload even-hud.ehpk -m "what changed"`,
+`npx evenhub promote <version> --to beta`.
