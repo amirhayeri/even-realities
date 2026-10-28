@@ -156,9 +156,10 @@ export default {
     const now = Date.now();
     const hrMax = Number(env.HR_MAX) || 185;
 
-    // ---- Writes ----
-    if (req.method === 'POST') {
-      const body = await req.json().catch(() => ({})) as any;
+    // ---- Writes (POST from Shortcuts; GET with ?token= works too, for testing from a browser) ----
+    const writable = ['/workout/start', '/workout/end', '/pause', '/skip', '/health'];
+    if (req.method === 'POST' || (req.method === 'GET' && writable.includes(path))) {
+      const body = req.method === 'POST' ? (await req.json().catch(() => ({})) as any) : Object.fromEntries(url.searchParams);
 
       if (path === '/workout/start') {
         const w = defaultWorkout();
