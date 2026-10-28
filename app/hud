@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Tiny control script for the HUD endpoint. Reads app/.env for the endpoint and token.
+#   ./hud state          show what the glasses see
+#   ./hud start [type]   start a workout (default: run), Spotify shuffles the gym playlist
+#   ./hud end            end the workout, Spotify pauses
+#   ./hud pause | skip   same as the glasses gestures
+#   ./hud hr 142         post a heart-rate sample (for testing without a watch)
+#   ./hud token          print the token, for Shortcuts on the phone
+set -euo pipefail
+cd "$(dirname "$0")"
+[ -f .env ] || { echo "no app/.env; create it with VITE_HUD_ENDPOINT and VITE_HUD_TOKEN"; exit 1; }
+EP=$(grep '^VITE_HUD_ENDPOINT=' .env | cut -d= -f2- | tr -d '[:space:]"'"'"'')
+TK=$(grep '^VITE_HUD_TOKEN=' .env | cut -d= -f2- | tr -d '[:space:]"'"'"'')
+[ -n "$EP" ] && [ -n "$TK" ] || { echo ".env is missing VITE_HUD_ENDPOINT or VITE_HUD_TOKEN"; exit 1; }
+H="Authorization: Bearer $TK"
+case "${1:-state}" in
+  state)  curl -s -H "$H" "$EP/state" | python3 -m json.tool ;;
+  start)  curl -s -X POST -H "$H" -H 'Content-Type: application/json' -d "{\"type\":\"${2:-run}\"}" "$EP/workout/start"; echo ;;
+  end)    curl -s -X POST -H "$H" "$EP/workout/end"; echo ;;
+  pause)  curl -s -X POST -H "$H" "$EP/pause"; echo ;;
+  skip)   curl -s -X POST -H "$H" "$EP/skip"; echo ;;
+  hr)     curl -s -X POST -H "$H" -H 'Content-Type: application/json' -d "{\"hr\":${2:-140}}" "$EP/health"; echo ;;
+  token)  echo "$TK" ;;
+  *)      sed -n '2,9p' "$0" ;;
+esac
