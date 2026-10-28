@@ -6,7 +6,7 @@ import { OsEventTypeList, StartUpPageCreateResult, type EvenHubEvent } from '@ev
 import { getBridge } from './bridge';
 import { createMockModel, createRemoteModel, type Model } from './model';
 import { drawActivityTile, drawBlankTile, drawHrTile, newTile, toPng } from './draw';
-import { IDS, MENU, NAMES, ambientLines, pageSpec, workoutLines } from './layout';
+import { DIM, IDS, MENU, NAMES, ambientLines, pageSpec, workoutLines } from './layout';
 import { createWriteQueue } from './queue';
 
 const TICK_MS = 1000;
@@ -28,7 +28,7 @@ async function main() {
   const q = createWriteQueue();
   const hrTile = newTile();
   const actTile = newTile();
-  const lastText: string[] = ['', '', '', ''];
+  const lastText: string[] = ['', '', ''];
   let lastHrDrawn = -1;
   let lastMode: 'workout' | 'ambient' | '' = '';
   let tick = 0;
@@ -56,10 +56,10 @@ async function main() {
     if (t === OsEventTypeList.FOREGROUND_ENTER_EVENT) { lastText.fill(''); lastHrDrawn = -1; lastMode = ''; render(true); }
   });
 
-  function pushText(id: number, name: string, content: string, idx: number) {
+  function pushText(id: number, name: string, content: string, idx: number, textColor?: number) {
     if (lastText[idx] === content) return;
     lastText[idx] = content;
-    q.push(`text:${id}`, () => bridge.textContainerUpgrade({ containerID: id, containerName: name, content }));
+    q.push(`text:${id}`, () => bridge.textContainerUpgrade({ containerID: id, containerName: name, content, textColor }));
   }
 
   function pushImage(id: number, name: string, canvas: HTMLCanvasElement) {
@@ -87,8 +87,7 @@ async function main() {
       const lines = workoutLines(s);
       pushText(IDS.l1, NAMES.l1, lines[0], 0);
       pushText(IDS.l2, NAMES.l2, lines[1], 1);
-      pushText(IDS.l3, NAMES.l3, lines[2], 2);
-      pushText(IDS.l4, NAMES.l4, lines[3], 3);
+      pushText(IDS.l3, NAMES.l3, lines[2], 2, DIM);
     } else {
       if (modeChanged || force) {
         drawBlankTile(hrTile); drawBlankTile(actTile);
@@ -98,8 +97,7 @@ async function main() {
       const lines = ambientLines(s);
       pushText(IDS.l1, NAMES.l1, lines[0], 0);
       pushText(IDS.l2, NAMES.l2, lines[1], 1);
-      pushText(IDS.l3, NAMES.l3, lines[2], 2);
-      pushText(IDS.l4, NAMES.l4, lines[3], 3);
+      pushText(IDS.l3, NAMES.l3, lines[2], 2, 1);
     }
   }
 

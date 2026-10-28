@@ -3,25 +3,28 @@
 // padded with spaces measured in pixels with @evenrealities/pretext.
 
 import { getTextWidth } from '@evenrealities/pretext';
-import { zoneOf, type HudState } from './model';
+import { type HudState } from './model';
 
 export const SCREEN_W = 576;
 export const LINE_H = 27;
 export const TEXT_X = 12;
 export const TEXT_W = SCREEN_W - 2 * TEXT_X;
 
-export const IDS = { hr: 1, act: 2, l1: 3, l2: 4, l3: 5, l4: 6 } as const;
-export const NAMES = { hr: 'tile-hr', act: 'tile-act', l1: 'line-1', l2: 'line-2', l3: 'line-3', l4: 'line-4' } as const;
+export const IDS = { hr: 1, act: 2, l1: 3, l2: 4, l3: 5 } as const;
+export const NAMES = { hr: 'tile-hr', act: 'tile-act', l1: 'line-1', l2: 'line-2', l3: 'line-3' } as const;
+/** Text rows sit below the 144px tiles with 40px pitch, so three 27px lines breathe. */
+export const ROW_Y = [158, 198, 238] as const;
+export const DIM = 2; // textColor 0..4; action bar at 2 recedes behind live data
 export const MENU = { pause: 1, resume: 2, skip: 3, exit: 4 } as const;
 
 export function pageSpec() {
   const line = (id: number, name: string, row: number, capture = 0) => ({
     containerID: id, containerName: name,
-    xPosition: TEXT_X, yPosition: 150 + row * LINE_H, width: TEXT_W, height: LINE_H + 3,
+    xPosition: TEXT_X, yPosition: ROW_Y[row], width: TEXT_W, height: LINE_H + 3,
     content: ' ', isEventCapture: capture, zOrderIndex: id, paddingLength: 0, borderWidth: 0,
   });
   return {
-    containerTotalNum: 6,
+    containerTotalNum: 5,
     imageObject: [
       { containerID: IDS.hr, containerName: NAMES.hr, xPosition: 0, yPosition: 0, width: 288, height: 144, zOrderIndex: IDS.hr },
       { containerID: IDS.act, containerName: NAMES.act, xPosition: 288, yPosition: 0, width: 288, height: 144, zOrderIndex: IDS.act },
@@ -30,7 +33,6 @@ export function pageSpec() {
       line(IDS.l1, NAMES.l1, 0, 1),
       line(IDS.l2, NAMES.l2, 1),
       line(IDS.l3, NAMES.l3, 2),
-      line(IDS.l4, NAMES.l4, 3),
     ],
     menuObject: {
       menuItems: [
@@ -59,19 +61,19 @@ function fmtMs(ms: number) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }
 
-export function workoutLines(s: HudState): [string, string, string, string] {
-  const w = s.workout, sp = s.spotify, z = zoneOf(w.hr, w.hrMax);
+/** HR and zone live in the left tile, so the text rows carry only what the tiles don't. */
+export function workoutLines(s: HudState): [string, string, string] {
+  const w = s.workout, sp = s.spotify;
   return [
-    spread(`Zone ${z.n}  ${z.name}`, `${Math.round(w.hr)} bpm  ·  ${Math.round(z.pct * 100)}% max`),
     spread(`${sp.playing ? '▶' : '▮▮'}  ${sp.title} — ${sp.artist}`, `${fmtMs(sp.positionMs)} / ${fmtMs(sp.durationMs)}`),
     spread(sp.next ? `Next  ${sp.next.title} — ${sp.next.artist}` : 'Queue empty', `Move ${s.rings.move}/${s.rings.moveGoal}`),
     spread(`tap  ${w.paused ? 'resume' : 'pause'}`, 'tap+hold  menu'),
   ];
 }
 
-export function ambientLines(s: HudState): [string, string, string, string] {
+export function ambientLines(s: HudState): [string, string, string] {
   const d = new Date(s.now);
   const hhmm = `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
   const g = s.glucose ? `${s.glucose.mmol.toFixed(1)} ${({ up: '↗', flat: '→', down: '↘', doubleUp: '⇈', doubleDown: '⇊' })[s.glucose.trend]}` : '';
-  return [' ', ' ', ' ', spread(`${hhmm}   ${g}`, `${Math.round(s.workout.hr)} bpm   ${s.battery}%`)];
+  return [' ', ' ', spread(`${hhmm}   ${g}`, `${Math.round(s.workout.hr)} bpm   ${s.battery}%`)];
 }
