@@ -7,8 +7,7 @@ compatibility_date = "2024-10-01"
 
 [[kv_namespaces]]
 binding = "HUD"
-id = "REPLACE_WITH_wrangler_kv_namespace_create_HUD"
-preview_id = "REPLACE_WITH_preview_id"
+id = "c6cb3cb34e16428286de9b8a2ba49bf2"
 
 [vars]
 BASE_URL = "https://hud.bioconscious.tech"
