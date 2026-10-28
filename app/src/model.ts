@@ -30,7 +30,7 @@ export interface HudState {
   };
   rings: { move: number; moveGoal: number; exercise: number; exerciseGoal: number; stand: number; standGoal: number };
   glucose?: { mmol: number; trend: Trend; delta15: number; pred30?: number };
-  battery: number;
+  battery: number | null;
 }
 
 export interface Model {
@@ -160,6 +160,7 @@ export function createRemoteModel(base: string, token: string, pollMs = 2000): M
         .then((remote: Partial<HudState>) => {
           healthy = true; lastRemoteAt = Date.now();
           const { now: _n, ...rest } = remote as any;
+          for (const k of Object.keys(rest)) if (rest[k] === null || rest[k] === undefined) delete rest[k];   // keep local values the endpoint doesn't know
           Object.assign(state, rest, { now: Date.now() });
         })
         .catch(err => { if (healthy) console.warn('[hud] endpoint lost', err); healthy = false; if (Date.now() - lastRemoteAt > 30_000) state.workout.active = false; });

@@ -61,9 +61,10 @@ export function spread(left: string, right: string, widthPx = TEXT_W): string {
 /** Everything numeric lives in the tiles; the text rows are just the music. */
 export function workoutLines(s: HudState): [string, string] {
   const sp = s.spotify;
+  const dash = (t: string, a?: string) => (a ? `${t} — ${a}` : t);
   return [
-    `${sp.title} — ${sp.artist}`,
-    sp.next ? `Next  ${sp.next.title} — ${sp.next.artist}` : 'Queue empty',
+    dash(sp.title, sp.artist),
+    sp.next ? `Next  ${dash(sp.next.title, sp.next.artist)}` : 'Queue empty',
   ];
 }
 
@@ -75,5 +76,6 @@ export function clockText(s: HudState): string {
 export function ambientLines(s: HudState): [string, string] {
   const hhmm = clockText(s);
   const g = s.glucose ? `${s.glucose.mmol.toFixed(1)} ${({ up: '↗', flat: '→', down: '↘', doubleUp: '⇈', doubleDown: '⇊' })[s.glucose.trend]}` : '';
-  return [' ', spread(`${hhmm}   ${g}`, `${Math.round(s.workout.hr)} bpm   ${s.battery}%`)];
+  const right = [s.workout.hr ? `${Math.round(s.workout.hr)} bpm` : '', typeof s.battery === 'number' ? `${s.battery}%` : ''].filter(Boolean).join('   ');
+  return [' ', spread(`${hhmm}   ${g}`.trim(), right)];
 }
