@@ -96,17 +96,20 @@ export function drawHrTile(c: HTMLCanvasElement, hr: number, hrMax: number) {
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, TILE_W, TILE_H);
   const z = zoneOf(hr, hrMax);
   const hrText = String(Math.round(hr));
-  const w = measureDots(hrText, 16);
-  dots(ctx, hrText, Math.round((288 - w) / 2), 8, 16, 13);
-  // Zone bar: five segments, the active one taller and brightest, a marker inside it.
+  const w = measureDots(hrText, 14);
+  dots(ctx, hrText, Math.round((288 - w) / 2), 4, 14, 11);          // rows 4..102
+  // Zone bar sits lower, with Z1..Z5 above each segment; the active zone is
+  // taller, brightest, and carries a marker for where in the zone you are.
   for (let i = 0; i < 5; i++) {
     const active = i + 1 === z.n;
+    const x = 12 + i * 53;
+    label(ctx, 'Z' + (i + 1), x + 25, 116, 'center', 10, active ? 1 : 0.4);
     ctx.fillStyle = lvl(active ? 1 : (i + 1 < z.n ? 0.45 : 0.18));
-    ctx.fillRect(12 + i * 53, active ? 118 : 124, 50, active ? 18 : 10);
+    ctx.fillRect(x, active ? 121 : 126, 50, active ? 16 : 8);
   }
   ctx.fillStyle = lvl(1);
-  ctx.fillRect(12 + (z.n - 1) * 53 + Math.round(z.within * 48), 116, 2, 22);
-  icon(ctx, 'heart', 274, 8, 0.6, 1);
+  ctx.fillRect(12 + (z.n - 1) * 53 + Math.round(z.within * 48), 119, 2, 20);
+  icon(ctx, 'heart', 274, 6, 0.6, 1);
 }
 
 export function drawActivityTile(c: HTMLCanvasElement, s: HudState, blinkOn: boolean) {
