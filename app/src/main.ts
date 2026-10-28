@@ -17,7 +17,9 @@ async function main() {
   status(bridge.kind === 'even' ? 'Connected to Even app' : 'Browser preview');
 
   const endpoint = import.meta.env.VITE_HUD_ENDPOINT as string | undefined;
-  const model: Model = endpoint ? createRemoteModel(endpoint) : createMockModel();
+  const token = (import.meta.env.VITE_HUD_TOKEN as string | undefined) ?? '';
+  const model: Model = endpoint ? createRemoteModel(endpoint, token) : createMockModel();
+  if (endpoint) status(`${bridge.kind === 'even' ? 'Even app' : 'Preview'} · live from ${endpoint}`);
 
   const result = await bridge.createStartUpPageContainer(pageSpec());
   if (result !== StartUpPageCreateResult.success) {

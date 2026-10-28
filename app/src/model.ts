@@ -136,32 +136,41 @@ export function createMockModel(seed = Date.now()): Model {
 
 // ---------- Remote: poll your endpoint, fall back to mock between polls ----------
 
-export function createRemoteModel(endpoint: string, pollMs = 2000): Model {
+export function createRemoteModel(base: string, token: string, pollMs = 2000): Model {
+  const root = base.replace(/\/+$/, '');
+  const headers = { Authorization: `Bearer ${token}` };
   const mock = createMockModel();
+  const state: HudState = mock.state;
+  state.workout.active = false;                       // Ambient until the endpoint says otherwise
   let lastFetch = 0;
   let healthy = false;
+  let lastRemoteAt = 0;
   const model: Model = {
-    state: mock.state,
+    state,
     tick(dtMs) {
-      mock.tick(dtMs);
+      // Between polls, advance only what moves deterministically.
+      state.now = Date.now();
+      if (state.workout.active && !state.workout.paused) state.workout.elapsedSec += dtMs / 1000;
+      if (state.spotify.playing) state.spotify.positionMs = Math.min(state.spotify.durationMs, state.spotify.positionMs + dtMs);
       const t = Date.now();
       if (t - lastFetch < pollMs) return;
       lastFetch = t;
-      fetch(endpoint, { cache: 'no-store' })
+      fetch(`${root}/state`, { cache: 'no-store', headers })
         .then(r => r.ok ? r.json() : Promise.reject(new Error(String(r.status))))
         .then((remote: Partial<HudState>) => {
-          healthy = true;
-          Object.assign(model.state, remote, { now: Date.now() });
+          healthy = true; lastRemoteAt = Date.now();
+          const { now: _n, ...rest } = remote as any;
+          Object.assign(state, rest, { now: Date.now() });
         })
-        .catch(err => { if (healthy) console.warn('[hud] endpoint lost', err); healthy = false; });
+        .catch(err => { if (healthy) console.warn('[hud] endpoint lost', err); healthy = false; if (Date.now() - lastRemoteAt > 30_000) state.workout.active = false; });
     },
     togglePause() {
-      mock.togglePause();
-      fetch(endpoint + '/pause', { method: 'POST' }).catch(() => {});
+      state.workout.paused = !state.workout.paused;
+      state.spotify.playing = !state.workout.paused;
+      fetch(`${root}/pause`, { method: 'POST', headers }).catch(() => {});
     },
     skipTrack() {
-      mock.skipTrack();
-      fetch(endpoint + '/skip', { method: 'POST' }).catch(() => {});
+      fetch(`${root}/skip`, { method: 'POST', headers }).catch(() => {});
     },
   };
   return model;
