@@ -63,8 +63,12 @@ async function main() {
     // Ask the phone directly and show its unparsed answer, plus what it says about the glasses.
     let rawCreate = '', dev = '';
     try { rawCreate = JSON.stringify(await bridge.raw('createStartUpPageContainer', new CreateStartUpPageContainer(variants[variants.length - 1][1]()).toJson())); } catch (e: any) { rawCreate = 'threw ' + (e?.message ?? e); }
-    try { dev = JSON.stringify(await bridge.raw('getGlassesInfo', {})); } catch (e: any) { dev = 'threw ' + (e?.message ?? e); }
-    status(`Page create refused. Phone said: ${rawCreate} · glasses: ${dev} · layouts: ${report.join(' ')}`);
+    try {
+      const d: any = await bridge.raw('getGlassesInfo', {});
+      const st = d?.status ?? {};
+      dev = `${st.connectType ?? '?'} wearing=${st.isWearing ?? '?'} inCase=${st.isInCase ?? '?'} charging=${st.isCharging ?? '?'} battery=${st.batteryLevel ?? '?'}`;
+    } catch (e: any) { dev = 'threw ' + (e?.message ?? e); }
+    status(`Page create refused (phone replied ${rawCreate}). Glasses: ${dev}. ${/wearing=false/.test(dev) ? 'PUT THE GLASSES ON and re-scan. ' : ''}Layouts: ${report.join(' ')}`);
     return;
   }
   if (created === 'hello') { status('Only the bare Hello page works — ' + report.join('  ')); return; }
