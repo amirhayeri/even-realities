@@ -51,6 +51,12 @@ const CORS = {
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...CORS } });
 const text = (s: string, status = 200) => new Response(s, { status, headers: { 'Content-Type': 'text/plain', ...CORS } });
 
+async function hmac(key: string, msg: string): Promise<string> {
+  const k = await crypto.subtle.importKey('raw', new TextEncoder().encode(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const sig = await crypto.subtle.sign('HMAC', k, new TextEncoder().encode(msg));
+  return [...new Uint8Array(sig)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 function authed(req: Request, env: Env): boolean {
   const h = req.headers.get('Authorization') ?? '';
   const q = new URL(req.url).searchParams.get('token') ?? '';
@@ -127,15 +133,21 @@ export default {
     if (path === '/health' && req.method === 'GET') return text('ok');
 
     // ---- Spotify linking (browser, one time) ----
+    // The OAuth state is a timestamp signed with HUD_TOKEN, so no storage is
+    // needed between login and callback (KV is eventually consistent).
     if (path === '/spotify/login') {
       if (!authed(req, env)) return text('add ?token=HUD_TOKEN', 401);
-      const state = crypto.randomUUID();
-      await env.HUD.put('spotify:state', state, { expirationTtl: 600 });
+      const ts = String(Date.now());
+      const state = `${ts}.${await hmac(env.HUD_TOKEN, ts)}`;
       return Response.redirect(spotify.loginUrl(env, state), 302);
     }
     if (path === '/spotify/callback') {
-      const code = url.searchParams.get('code'), state = url.searchParams.get('state');
-      if (!code || !state || state !== await env.HUD.get('spotify:state')) return text('bad state', 400);
+      const code = url.searchParams.get('code'), state = url.searchParams.get('state') ?? '';
+      const err = url.searchParams.get('error');
+      if (err) return text(`Spotify said: ${err}`, 400);
+      const [ts, sig] = state.split('.');
+      const fresh = ts && Date.now() - Number(ts) < 10 * 60_000;
+      if (!code || !fresh || sig !== await hmac(env.HUD_TOKEN, ts)) return text('bad state (open /spotify/login again)', 400);
       await spotify.handleCallback(env, code);
       return text('Spotify linked. You can close this tab.');
     }
