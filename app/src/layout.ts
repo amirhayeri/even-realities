@@ -10,11 +10,11 @@ export const LINE_H = 27;
 export const TEXT_X = 12;
 export const TEXT_W = SCREEN_W - 2 * TEXT_X;
 
-export const IDS = { hr: 1, act: 2, song: 3, l1: 4, l2: 5 } as const;
-export const NAMES = { hr: 'tile-hr', act: 'tile-act', song: 'strip-song', l1: 'line-1', l2: 'line-2' } as const;
-/** Two text rows under the tiles, then a 288x20 song-progress strip. */
-export const ROW_Y = [158, 198] as const;
-export const STRIP = { x: 144, y: 244, w: 288, h: 20 } as const;
+export const IDS = { hr: 1, act: 2, song: 3, l1: 4, l2: 5, clock: 6 } as const;
+export const NAMES = { hr: 'tile-hr', act: 'tile-act', song: 'strip-song', l1: 'line-1', l2: 'line-2', clock: 'clock' } as const;
+/** Two text rows under the tiles, a 288x20 song-progress strip, then the clock bottom-left. */
+export const ROW_Y = [156, 194, 258] as const;
+export const STRIP = { x: 144, y: 234, w: 288, h: 20 } as const;
 export const DIM = 3; // textColor 0..4 for the secondary row
 export const MENU = { pause: 1, resume: 2, skip: 3, exit: 4 } as const;
 
@@ -25,7 +25,7 @@ export function pageSpec() {
     content: ' ', isEventCapture: capture, zOrderIndex: id, paddingLength: 0, borderWidth: 0,
   });
   return {
-    containerTotalNum: 5,
+    containerTotalNum: 6,
     imageObject: [
       { containerID: IDS.hr, containerName: NAMES.hr, xPosition: 0, yPosition: 0, width: 288, height: 144, zOrderIndex: IDS.hr },
       { containerID: IDS.act, containerName: NAMES.act, xPosition: 288, yPosition: 0, width: 288, height: 144, zOrderIndex: IDS.act },
@@ -34,6 +34,7 @@ export function pageSpec() {
     textObject: [
       line(IDS.l1, NAMES.l1, 0, 1),
       line(IDS.l2, NAMES.l2, 1),
+      { ...line(IDS.clock, NAMES.clock, 2), width: 120 },
     ],
     menuObject: {
       menuItems: [
@@ -66,9 +67,13 @@ export function workoutLines(s: HudState): [string, string] {
   ];
 }
 
-export function ambientLines(s: HudState): [string, string] {
+export function clockText(s: HudState): string {
   const d = new Date(s.now);
-  const hhmm = `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+  return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+export function ambientLines(s: HudState): [string, string] {
+  const hhmm = clockText(s);
   const g = s.glucose ? `${s.glucose.mmol.toFixed(1)} ${({ up: '↗', flat: '→', down: '↘', doubleUp: '⇈', doubleDown: '⇊' })[s.glucose.trend]}` : '';
   return [' ', spread(`${hhmm}   ${g}`, `${Math.round(s.workout.hr)} bpm   ${s.battery}%`)];
 }
