@@ -1,3 +1,11 @@
+# Even Realities — G2 notes and apps
+
+- **`app/`** — Bio HUD, an Even Hub app (Workout D). See `app/README.md` to test it in a browser, the simulator, or on the glasses.
+- **`docs/even-hub-reference.md`** — SDK, limits, CLI and hardware quirks compiled from the shipped packages.
+- Below: the Even Terminal runbook.
+
+---
+
 # Even Terminal setup (G2 glasses + R1 ring)
 
 Runbook for driving Claude Code from Even Realities G2 glasses via
