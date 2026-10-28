@@ -34,7 +34,7 @@ export function pageSpec() {
     textObject: [
       line(IDS.l1, NAMES.l1, 0, 1),
       line(IDS.l2, NAMES.l2, 1),
-      { ...line(IDS.clock, NAMES.clock, 2), width: 120 },
+      line(IDS.clock, NAMES.clock, 2),
     ],
     menuObject: {
       menuItems: [
@@ -73,9 +73,9 @@ export function clockText(s: HudState): string {
   return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-export function ambientLines(s: HudState): [string, string] {
-  const hhmm = clockText(s);
+/** One quiet line on the bottom row: clock, glucose if the endpoint has it, glasses battery. */
+export function ambientLine(s: HudState): string {
   const g = s.glucose ? `${s.glucose.mmol.toFixed(1)} ${({ up: '↗', flat: '→', down: '↘', doubleUp: '⇈', doubleDown: '⇊' })[s.glucose.trend]}` : '';
-  const right = [s.workout.hr ? `${Math.round(s.workout.hr)} bpm` : '', typeof s.battery === 'number' ? `${s.battery}%` : ''].filter(Boolean).join('   ');
-  return [' ', spread(`${hhmm}   ${g}`.trim(), right)];
+  const right = typeof s.battery === 'number' ? `${s.battery}%` : '';
+  return spread(`${clockText(s)}   ${g}`.trim(), right);
 }

@@ -6,7 +6,7 @@ import { OsEventTypeList, StartUpPageCreateResult, type EvenHubEvent } from '@ev
 import { getBridge } from './bridge';
 import { createMockModel, createRemoteModel, type Model } from './model';
 import { drawActivityTile, drawBlankTile, drawHrTile, drawSongStrip, newStrip, newTile, toPng } from './draw';
-import { DIM, IDS, MENU, NAMES, ambientLines, clockText, pageSpec, workoutLines } from './layout';
+import { DIM, IDS, MENU, NAMES, ambientLine, clockText, pageSpec, workoutLines } from './layout';
 import { createWriteQueue } from './queue';
 
 const TICK_MS = 1000;
@@ -31,6 +31,7 @@ async function main() {
     return;
   }
 
+  bridge.onBattery(pct => { model.state.battery = pct; });
   const q = createWriteQueue();
   const hrTile = newTile();
   const actTile = newTile();
@@ -104,10 +105,9 @@ async function main() {
         pushImage(IDS.act, NAMES.act, actTile);
         pushImage(IDS.song, NAMES.song, songStrip);
       }
-      const lines = ambientLines(s);
-      pushText(IDS.l1, NAMES.l1, lines[0], 0);
-      pushText(IDS.l2, NAMES.l2, lines[1], 1, 1);
-      pushText(IDS.clock, NAMES.clock, ' ', 2);
+      pushText(IDS.l1, NAMES.l1, ' ', 0);
+      pushText(IDS.l2, NAMES.l2, ' ', 1);
+      pushText(IDS.clock, NAMES.clock, ambientLine(s), 2, 1);
     }
   }
 

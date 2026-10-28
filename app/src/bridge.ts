@@ -14,6 +14,8 @@ export interface GlassesBridge {
   updateImageRawData(u: { containerID: number; containerName: string; imageData: Uint8Array }): Promise<ImageRawDataUpdateResult>;
   shutDownPageContainer(mode?: number): Promise<boolean>;
   onEvenHubEvent(cb: (e: EvenHubEvent) => void): () => void;
+  /** Glasses battery percent, when the host reports it. */
+  onBattery(cb: (pct: number) => void): void;
   readonly kind: 'even' | 'preview';
 }
 
@@ -32,6 +34,10 @@ export async function getBridge(): Promise<GlassesBridge> {
       updateImageRawData: (u) => b.updateImageRawData(new ImageRawDataUpdate(u)),
       shutDownPageContainer: (m = 0) => b.shutDownPageContainer(m),
       onEvenHubEvent: (cb) => b.onEvenHubEvent(cb),
+      onBattery: (cb) => {
+        b.getDeviceInfo().then(d => { const p = d?.status?.batteryLevel; if (typeof p === 'number') cb(p); }).catch(() => {});
+        b.onDeviceStatusChanged(st => { if (typeof st.batteryLevel === 'number') cb(st.batteryLevel); });
+      },
     };
   }
   return createPreviewBridge();
@@ -152,5 +158,6 @@ function createPreviewBridge(): GlassesBridge {
       return true;
     },
     onEvenHubEvent(cb) { listeners.add(cb); return () => listeners.delete(cb); },
+    onBattery() { /* no glasses in the preview */ },
   };
 }
