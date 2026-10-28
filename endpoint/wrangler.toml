@@ -11,7 +11,7 @@ id = "c6cb3cb34e16428286de9b8a2ba49bf2"
 
 [vars]
 BASE_URL = "https://hud.bioconscious.tech"
-SPOTIFY_PLAYLIST_URI = "spotify:playlist:REPLACE_ME"
+SPOTIFY_PLAYLIST_URI = "spotify:playlist:3qSwBVv3oXiuSECFUTJ7c8"
 WEATHER_LAT = "49.2827"
 WEATHER_LON = "-123.1207"
 WEATHER_CITY = "Vancouver"
