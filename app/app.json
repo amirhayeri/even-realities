@@ -10,12 +10,17 @@
     {
       "name": "network",
       "desc": "Fetches your live workout, Spotify, glucose and weather summary from your own HUD endpoint.",
-      "whitelist": ["https://hud.bioconscious.tech"]
+      "whitelist": [
+        "https://even-hud-endpoint.amir-e77.workers.dev",
+        "https://hud.bioconscious.tech"
+      ]
     },
     {
       "name": "location",
       "desc": "Local weather and pace."
     }
   ],
-  "supported_languages": ["en"]
+  "supported_languages": [
+    "en"
+  ]
 }
