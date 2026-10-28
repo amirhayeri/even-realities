@@ -25,11 +25,26 @@ async function main() {
     ? 'Browser preview on live data. Click = tap. M = menu. ↑/↓ = swipe.'
     : 'Browser preview. Click = tap. M = menu. No Even app bridge found, so data is mocked.';
 
-  const result = await bridge.createStartUpPageContainer(pageSpec());
-  if (result !== StartUpPageCreateResult.success) {
-    status(`Page create failed: ${StartUpPageCreateResult[result] ?? result}`);
-    return;
+  // Create the page. If the firmware rejects the full layout, step down through
+  // simpler variants so the lens still shows something and the phone page says
+  // which rule tripped.
+  const variants: Array<[string, () => any]> = [
+    ['full', () => pageSpec()],
+    ['no-menu', () => { const p: any = pageSpec(); delete p.menuObject; return p; }],
+    ['no-strip', () => { const p: any = pageSpec(); delete p.menuObject; p.imageObject = p.imageObject.slice(0, 2); p.containerTotalNum = 5; return p; }],
+    ['no-zorder', () => { const p: any = pageSpec(); delete p.menuObject; p.imageObject = p.imageObject.slice(0, 2); p.containerTotalNum = 5; for (const c of [...p.imageObject, ...p.textObject]) delete c.zOrderIndex; return p; }],
+    ['text-only', () => { const p: any = pageSpec(); delete p.menuObject; p.imageObject = []; p.containerTotalNum = p.textObject.length; for (const c of p.textObject) delete c.zOrderIndex; return p; }],
+  ];
+  let created = '';
+  for (const [name, make] of variants) {
+    const r = await bridge.createStartUpPageContainer(make());
+    console.log('[hud] create', name, StartUpPageCreateResult[r] ?? r);
+    if (r === StartUpPageCreateResult.success) { created = name; break; }
   }
+  if (!created) { status('Page create failed on every layout; see console'); return; }
+  if (created !== 'full') status(`Lens on reduced layout "${created}" (firmware rejected the full one)`);
+  const hasStrip = created === 'full' || created === 'no-menu';
+  const hasTiles = created !== 'text-only';
 
   bridge.onBattery(pct => { model.state.battery = pct; });
   const q = createWriteQueue();
@@ -85,25 +100,23 @@ async function main() {
 
     if (mode === 'workout') {
       const hrRounded = Math.round(s.workout.hr);
-      if (force || modeChanged || hrRounded !== lastHrDrawn) {
+      if (hasTiles && (force || modeChanged || hrRounded !== lastHrDrawn)) {
         lastHrDrawn = hrRounded;
         drawHrTile(hrTile, s.workout.hr, s.workout.hrMax);
         pushImage(IDS.hr, NAMES.hr, hrTile);
       }
-      drawActivityTile(actTile, s, tick % 2 === 0);
-      pushImage(IDS.act, NAMES.act, actTile);
-      drawSongStrip(songStrip, s);
-      pushImage(IDS.song, NAMES.song, songStrip);
+      if (hasTiles) { drawActivityTile(actTile, s, tick % 2 === 0); pushImage(IDS.act, NAMES.act, actTile); }
+      if (hasStrip) { drawSongStrip(songStrip, s); pushImage(IDS.song, NAMES.song, songStrip); }
       const lines = workoutLines(s);
       pushText(IDS.l1, NAMES.l1, lines[0], 0);
       pushText(IDS.l2, NAMES.l2, lines[1], 1, DIM);
       pushText(IDS.clock, NAMES.clock, clockText(s), 2, 2);
     } else {
-      if (modeChanged || force) {
+      if ((modeChanged || force) && hasTiles) {
         drawBlankTile(hrTile); drawBlankTile(actTile); drawBlankTile(songStrip);
         pushImage(IDS.hr, NAMES.hr, hrTile);
         pushImage(IDS.act, NAMES.act, actTile);
-        pushImage(IDS.song, NAMES.song, songStrip);
+        if (hasStrip) pushImage(IDS.song, NAMES.song, songStrip);
       }
       pushText(IDS.l1, NAMES.l1, ' ', 0);
       pushText(IDS.l2, NAMES.l2, ' ', 1);
