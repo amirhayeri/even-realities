@@ -10,11 +10,12 @@ export const LINE_H = 27;
 export const TEXT_X = 12;
 export const TEXT_W = SCREEN_W - 2 * TEXT_X;
 
-export const IDS = { hr: 1, act: 2, l1: 3, l2: 4, l3: 5 } as const;
-export const NAMES = { hr: 'tile-hr', act: 'tile-act', l1: 'line-1', l2: 'line-2', l3: 'line-3' } as const;
-/** Text rows sit below the 144px tiles with 40px pitch, so three 27px lines breathe. */
-export const ROW_Y = [158, 198, 238] as const;
-export const DIM = 2; // textColor 0..4; action bar at 2 recedes behind live data
+export const IDS = { hr: 1, act: 2, song: 3, l1: 4, l2: 5 } as const;
+export const NAMES = { hr: 'tile-hr', act: 'tile-act', song: 'strip-song', l1: 'line-1', l2: 'line-2' } as const;
+/** Two text rows under the tiles, then a 288x20 song-progress strip. */
+export const ROW_Y = [158, 198] as const;
+export const STRIP = { x: 144, y: 244, w: 288, h: 20 } as const;
+export const DIM = 3; // textColor 0..4 for the secondary row
 export const MENU = { pause: 1, resume: 2, skip: 3, exit: 4 } as const;
 
 export function pageSpec() {
@@ -28,11 +29,11 @@ export function pageSpec() {
     imageObject: [
       { containerID: IDS.hr, containerName: NAMES.hr, xPosition: 0, yPosition: 0, width: 288, height: 144, zOrderIndex: IDS.hr },
       { containerID: IDS.act, containerName: NAMES.act, xPosition: 288, yPosition: 0, width: 288, height: 144, zOrderIndex: IDS.act },
+      { containerID: IDS.song, containerName: NAMES.song, xPosition: STRIP.x, yPosition: STRIP.y, width: STRIP.w, height: STRIP.h, zOrderIndex: IDS.song },
     ],
     textObject: [
       line(IDS.l1, NAMES.l1, 0, 1),
       line(IDS.l2, NAMES.l2, 1),
-      line(IDS.l3, NAMES.l3, 2),
     ],
     menuObject: {
       menuItems: [
@@ -56,24 +57,18 @@ export function spread(left: string, right: string, widthPx = TEXT_W): string {
   return l + ' '.repeat(n) + r;
 }
 
-function fmtMs(ms: number) {
-  const s = Math.floor(ms / 1000);
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-}
-
-/** HR and zone live in the left tile, so the text rows carry only what the tiles don't. */
-export function workoutLines(s: HudState): [string, string, string] {
-  const w = s.workout, sp = s.spotify;
+/** Everything numeric lives in the tiles; the text rows are just the music. */
+export function workoutLines(s: HudState): [string, string] {
+  const sp = s.spotify;
   return [
-    spread(`${sp.playing ? '▶' : '▮▮'}  ${sp.title} — ${sp.artist}`, `${fmtMs(sp.positionMs)} / ${fmtMs(sp.durationMs)}`),
-    spread(sp.next ? `Next  ${sp.next.title} — ${sp.next.artist}` : 'Queue empty', `Move ${s.rings.move}/${s.rings.moveGoal}`),
-    spread(`tap  ${w.paused ? 'resume' : 'pause'}`, 'tap+hold  menu'),
+    `${sp.title} — ${sp.artist}`,
+    sp.next ? `Next  ${sp.next.title} — ${sp.next.artist}` : 'Queue empty',
   ];
 }
 
-export function ambientLines(s: HudState): [string, string, string] {
+export function ambientLines(s: HudState): [string, string] {
   const d = new Date(s.now);
   const hhmm = `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
   const g = s.glucose ? `${s.glucose.mmol.toFixed(1)} ${({ up: '↗', flat: '→', down: '↘', doubleUp: '⇈', doubleDown: '⇊' })[s.glucose.trend]}` : '';
-  return [' ', ' ', spread(`${hhmm}   ${g}`, `${Math.round(s.workout.hr)} bpm   ${s.battery}%`)];
+  return [' ', spread(`${hhmm}   ${g}`, `${Math.round(s.workout.hr)} bpm   ${s.battery}%`)];
 }

@@ -5,7 +5,7 @@
 import { OsEventTypeList, StartUpPageCreateResult, type EvenHubEvent } from '@evenrealities/even_hub_sdk';
 import { getBridge } from './bridge';
 import { createMockModel, createRemoteModel, type Model } from './model';
-import { drawActivityTile, drawBlankTile, drawHrTile, newTile, toPng } from './draw';
+import { drawActivityTile, drawBlankTile, drawHrTile, drawSongStrip, newStrip, newTile, toPng } from './draw';
 import { DIM, IDS, MENU, NAMES, ambientLines, pageSpec, workoutLines } from './layout';
 import { createWriteQueue } from './queue';
 
@@ -28,7 +28,8 @@ async function main() {
   const q = createWriteQueue();
   const hrTile = newTile();
   const actTile = newTile();
-  const lastText: string[] = ['', '', ''];
+  const songStrip = newStrip();
+  const lastText: string[] = ['', ''];
   let lastHrDrawn = -1;
   let lastMode: 'workout' | 'ambient' | '' = '';
   let tick = 0;
@@ -84,20 +85,21 @@ async function main() {
       }
       drawActivityTile(actTile, s, tick % 2 === 0);
       pushImage(IDS.act, NAMES.act, actTile);
+      drawSongStrip(songStrip, s);
+      pushImage(IDS.song, NAMES.song, songStrip);
       const lines = workoutLines(s);
       pushText(IDS.l1, NAMES.l1, lines[0], 0);
-      pushText(IDS.l2, NAMES.l2, lines[1], 1);
-      pushText(IDS.l3, NAMES.l3, lines[2], 2, DIM);
+      pushText(IDS.l2, NAMES.l2, lines[1], 1, DIM);
     } else {
       if (modeChanged || force) {
-        drawBlankTile(hrTile); drawBlankTile(actTile);
+        drawBlankTile(hrTile); drawBlankTile(actTile); drawBlankTile(songStrip);
         pushImage(IDS.hr, NAMES.hr, hrTile);
         pushImage(IDS.act, NAMES.act, actTile);
+        pushImage(IDS.song, NAMES.song, songStrip);
       }
       const lines = ambientLines(s);
       pushText(IDS.l1, NAMES.l1, lines[0], 0);
-      pushText(IDS.l2, NAMES.l2, lines[1], 1);
-      pushText(IDS.l3, NAMES.l3, lines[2], 2, 1);
+      pushText(IDS.l2, NAMES.l2, lines[1], 1, 1);
     }
   }
 

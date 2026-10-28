@@ -25,6 +25,35 @@ const GLYPH: Record<string, string[]> = {
 
 function lvl(op: number) { return `rgba(255,255,255,${op})`; }
 
+// Small pictograms, '#' = lit. Drawn at 1px per cell unless scaled.
+const ICON: Record<string, string[]> = {
+  heart: ['.##.##.', '#######', '#######', '.#####.', '..###..', '...#...'],
+  clock: ['..#####..', '.#.....#.', '#...#...#', '#...#...#', '#...##..#', '#.......#', '#.......#', '.#.....#.', '..#####..'],
+  pause: ['##.##', '##.##', '##.##', '##.##', '##.##', '##.##', '##.##'],
+  flame: ['....#....', '...##....', '...###...', '..####...', '..#####..', '.#######.', '.#######.', '..#####..', '...###...'],
+  steps: ['.##......', '####.....', '####..##.', '.##..####', '.....####', '.##...##.', '####.....', '####..##.', '.##..####'],
+  route: ['......###', '.....#..#', '......##.', '....#....', '...#.....', '..#......', '.##......', '###......', '.#.......'],
+  flag:  ['#....', '####.', '#####', '####.', '#....', '#....', '#....'],
+  play:  ['#....', '###..', '#####', '###..', '#....'],
+};
+
+export function icon(ctx: CanvasRenderingContext2D, name: string, x: number, y: number, op = 0.6, scale = 1) {
+  const rows = ICON[name]; if (!rows) return;
+  ctx.fillStyle = lvl(op);
+  for (let r = 0; r < rows.length; r++) for (let c = 0; c < rows[r].length; c++)
+    if (rows[r][c] === '#') ctx.fillRect(x + c * scale, y + r * scale, scale, scale);
+}
+
+/** Arc of a ring, clockwise from 12 o'clock, pct 0..1, 1px cells. */
+export function ring(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, thick: number, pct: number, op: number) {
+  ctx.fillStyle = lvl(op);
+  const total = Math.max(0, Math.min(1, pct)) * 360;
+  for (let a = 0; a <= total; a += 2) {
+    const rad = (a - 90) * Math.PI / 180;
+    for (let t = 0; t < thick; t++) ctx.fillRect(Math.round(cx + (r - t) * Math.cos(rad)), Math.round(cy + (r - t) * Math.sin(rad)), 1, 1);
+  }
+}
+
 /** Dot-matrix text. cell = pitch between dots, dot = dot size. Returns drawn width. */
 export function dots(ctx: CanvasRenderingContext2D, text: string, x0: number, y0: number, cell: number, dot: number, op = 1): number {
   ctx.fillStyle = lvl(op);
@@ -67,18 +96,17 @@ export function drawHrTile(c: HTMLCanvasElement, hr: number, hrMax: number) {
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, TILE_W, TILE_H);
   const z = zoneOf(hr, hrMax);
   const hrText = String(Math.round(hr));
-  const w = dots(ctx, hrText, 12, 10, 15, 12);
-  dots(ctx, 'Z' + z.n, 12 + w + 18, 10 + 7 * 15 - 7 * 10, 10, 8, 0.9);
+  const w = measureDots(hrText, 16);
+  dots(ctx, hrText, Math.round((288 - w) / 2), 8, 16, 13);
+  // Zone bar: five segments, the active one taller and brightest, a marker inside it.
   for (let i = 0; i < 5; i++) {
     const active = i + 1 === z.n;
     ctx.fillStyle = lvl(active ? 1 : (i + 1 < z.n ? 0.45 : 0.18));
-    ctx.fillRect(12 + i * 53, active ? 106 : 112, 50, active ? 20 : 12);
+    ctx.fillRect(12 + i * 53, active ? 118 : 124, 50, active ? 18 : 10);
   }
   ctx.fillStyle = lvl(1);
-  ctx.fillRect(12 + (z.n - 1) * 53 + Math.round(z.within * 48), 104, 2, 24);
-  label(ctx, 'Z1', 12, 140, 'left', 11, 0.45);
-  label(ctx, 'Z5', 276, 140, 'right', 11, 0.45);
-  label(ctx, `${z.lo}–${z.hi} BPM`, 144, 140, 'center', 11, 0.6);
+  ctx.fillRect(12 + (z.n - 1) * 53 + Math.round(z.within * 48), 116, 2, 22);
+  icon(ctx, 'heart', 274, 8, 0.6, 1);
 }
 
 export function drawActivityTile(c: HTMLCanvasElement, s: HudState, blinkOn: boolean) {
@@ -90,26 +118,50 @@ export function drawActivityTile(c: HTMLCanvasElement, s: HudState, blinkOn: boo
   const h = Math.floor(e / 3600), m = Math.floor((e % 3600) / 60), sec = e % 60;
   const timer = h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
   const running = w.active && !w.paused;
-  dots(ctx, timer, 12, 14, h > 0 ? 6 : 7, h > 0 ? 5 : 6, running ? 1 : (blinkOn ? 0.5 : 0.2));
-  label(ctx, running ? 'ELAPSED' : 'PAUSED', 276, 20, 'right', 11, 0.5);
+  icon(ctx, running ? 'clock' : 'pause', 12, 16, 0.6, 1);
+  dots(ctx, timer, 30, 12, h > 0 ? 6 : 7, h > 0 ? 5 : 6, running ? 1 : (blinkOn ? 0.5 : 0.2));
 
-  dots(ctx, Math.round(w.steps).toLocaleString('en-US'), 12, 70, 4, 3, 0.9);
-  label(ctx, 'STEPS', 12, 112, 'left', 11, 0.5);
+  // Activity row: glyph + number, three columns.
+  icon(ctx, 'steps', 12, 78, 0.6, 1);
+  label(ctx, Math.round(w.steps).toLocaleString('en-US'), 26, 88, 'left', 18, 1);
 
-  label(ctx, String(Math.round(w.activeKcal)), 138, 92, 'left', 18, 1);
-  label(ctx, 'KCAL', 138, 112, 'left', 11, 0.5);
+  icon(ctx, 'flame', 118, 78, 0.6, 1);
+  label(ctx, String(Math.round(w.activeKcal)), 132, 88, 'left', 18, 1);
 
   const km = w.distanceM / 1000;
   const paceSec = km > 0.05 ? Math.round(w.elapsedSec / km) : 0;
   const pace = paceSec > 0 ? `${Math.floor(paceSec / 60)}:${pad(paceSec % 60)}` : '--:--';
-  label(ctx, km.toFixed(2), 276, 92, 'right', 18, 1);
-  label(ctx, `KM · ${pace}/KM`, 276, 112, 'right', 11, 0.5);
+  icon(ctx, 'route', 196, 78, 0.6, 1);
+  label(ctx, km.toFixed(2), 210, 88, 'left', 18, 1);
+  label(ctx, pace, 276, 106, 'right', 11, 0.5);
 
-  ctx.fillStyle = lvl(0.18); ctx.fillRect(12, 124, 264, 2);
-  ctx.fillStyle = lvl(0.8); ctx.fillRect(12, 124, Math.round(264 * Math.min(1, w.inZoneSec / w.zoneGoalSec)), 2);
-  const iz = Math.floor(w.inZoneSec);
-  label(ctx, `IN ZONE ${Math.floor(iz / 60)}:${pad(iz % 60)}`, 12, 140, 'left', 11, 0.45);
-  label(ctx, `GOAL ${Math.floor(w.zoneGoalSec / 60)}:00`, 276, 140, 'right', 11, 0.45);
+  // Time-in-zone bar with a goal flag; no words.
+  ctx.fillStyle = lvl(0.18); ctx.fillRect(12, 128, 214, 2);
+  ctx.fillStyle = lvl(0.8); ctx.fillRect(12, 128, Math.round(214 * Math.min(1, w.inZoneSec / w.zoneGoalSec)), 2);
+  icon(ctx, 'flag', 228, 124, 0.45, 1);
+
+  // Move ring, the one ring that matters mid-workout.
+  ring(ctx, 262, 128, 11, 4, 1, 0.18);
+  ring(ctx, 262, 128, 11, 4, s.rings.move / s.rings.moveGoal, 1);
+}
+
+/** 288x20 strip: play/pause glyph and a track progress bar. */
+export function drawSongStrip(c: HTMLCanvasElement, s: HudState) {
+  const ctx = c.getContext('2d')!;
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, c.width, c.height);
+  const sp = s.workout.paused ? 'pause' : 'play';
+  icon(ctx, sp, 0, 6, 0.7, 1);
+  const x0 = 12, w = c.width - 12;
+  ctx.fillStyle = lvl(0.18); ctx.fillRect(x0, 9, w, 2);
+  const pct = s.spotify.durationMs > 0 ? Math.min(1, s.spotify.positionMs / s.spotify.durationMs) : 0;
+  ctx.fillStyle = lvl(0.9); ctx.fillRect(x0, 9, Math.round(w * pct), 2);
+  ctx.fillStyle = lvl(1); ctx.fillRect(x0 + Math.round(w * pct) - 1, 6, 3, 8);
+}
+
+export function newStrip(): HTMLCanvasElement {
+  const c = document.createElement('canvas');
+  c.width = 288; c.height = 20;
+  return c;
 }
 
 export function drawBlankTile(c: HTMLCanvasElement) {
