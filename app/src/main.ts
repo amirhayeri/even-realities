@@ -18,8 +18,12 @@ async function main() {
 
   const endpoint = import.meta.env.VITE_HUD_ENDPOINT as string | undefined;
   const token = (import.meta.env.VITE_HUD_TOKEN as string | undefined) ?? '';
-  const model: Model = endpoint ? createRemoteModel(endpoint, token) : createMockModel();
-  if (endpoint) status(`${bridge.kind === 'even' ? 'Even app' : 'Preview'} · live from ${endpoint}`);
+  const model: Model = endpoint ? createRemoteModel(endpoint, token, status) : createMockModel();
+  if (endpoint) status(`connecting to ${endpoint}…`);
+  const hint = document.getElementById('hint');
+  if (hint) hint.textContent = endpoint
+    ? 'Browser preview on live data. Click = tap. M = menu. ↑/↓ = swipe.'
+    : 'Browser preview. Click = tap. M = menu. No Even app bridge found, so data is mocked.';
 
   const result = await bridge.createStartUpPageContainer(pageSpec());
   if (result !== StartUpPageCreateResult.success) {

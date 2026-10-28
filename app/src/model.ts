@@ -136,12 +136,17 @@ export function createMockModel(seed = Date.now()): Model {
 
 // ---------- Remote: poll your endpoint, fall back to mock between polls ----------
 
-export function createRemoteModel(base: string, token: string, pollMs = 2000): Model {
+export function createRemoteModel(base: string, token: string, onStatus?: (msg: string) => void, pollMs = 2000): Model {
   const root = base.replace(/\/+$/, '');
   const headers = { Authorization: `Bearer ${token}` };
-  const mock = createMockModel();
-  const state: HudState = mock.state;
-  state.workout.active = false;                       // Ambient until the endpoint says otherwise
+  // Start blank: nothing from the mock may leak onto a live screen.
+  const state: HudState = {
+    now: Date.now(),
+    workout: { active: false, paused: false, type: '', startedAt: 0, elapsedSec: 0, hr: 0, hrMax: 180, steps: 0, activeKcal: 0, distanceM: 0, inZoneSec: 0, zoneGoalSec: 1800 },
+    spotify: { playing: false, title: 'Connecting…', artist: '', positionMs: 0, durationMs: 0, queueCount: 0 },
+    rings: { move: 0, moveGoal: 600, exercise: 0, exerciseGoal: 30, stand: 0, standGoal: 12 },
+    battery: null,
+  };
   let lastFetch = 0;
   let healthy = false;
   let lastRemoteAt = 0;
@@ -158,12 +163,18 @@ export function createRemoteModel(base: string, token: string, pollMs = 2000): M
       fetch(`${root}/state`, { cache: 'no-store', headers })
         .then(r => r.ok ? r.json() : Promise.reject(new Error(String(r.status))))
         .then((remote: Partial<HudState>) => {
+          if (!healthy) onStatus?.(`live · ${root}`);
           healthy = true; lastRemoteAt = Date.now();
           const { now: _n, ...rest } = remote as any;
           for (const k of Object.keys(rest)) if (rest[k] === null || rest[k] === undefined) delete rest[k];   // keep local values the endpoint doesn't know
           Object.assign(state, rest, { now: Date.now() });
         })
-        .catch(err => { if (healthy) console.warn('[hud] endpoint lost', err); healthy = false; if (Date.now() - lastRemoteAt > 30_000) state.workout.active = false; });
+        .catch(err => {
+          if (healthy) console.warn('[hud] endpoint lost', err);
+          healthy = false;
+          onStatus?.(`endpoint unreachable: ${err?.message ?? err} · retrying`);
+          if (Date.now() - lastRemoteAt > 30_000) state.workout.active = false;
+        });
     },
     togglePause() {
       state.workout.paused = !state.workout.paused;
