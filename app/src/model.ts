@@ -138,7 +138,10 @@ export function createMockModel(seed = Date.now()): Model {
 
 export function createRemoteModel(base: string, token: string, onStatus?: (msg: string) => void, pollMs = 2000): Model {
   const root = base.replace(/\/+$/, '');
+  // Header and query both: the Even app's WebView has been seen to drop custom
+  // headers on cross-origin requests, and the Worker accepts either.
   const headers = { Authorization: `Bearer ${token}` };
+  const q = `?token=${encodeURIComponent(token)}`;
   // Start blank: nothing from the mock may leak onto a live screen.
   const state: HudState = {
     now: Date.now(),
@@ -160,7 +163,7 @@ export function createRemoteModel(base: string, token: string, onStatus?: (msg: 
       const t = Date.now();
       if (t - lastFetch < pollMs) return;
       lastFetch = t;
-      fetch(`${root}/state`, { cache: 'no-store', headers })
+      fetch(`${root}/state${q}`, { cache: 'no-store', headers })
         .then(r => r.ok ? r.json() : Promise.reject(new Error(String(r.status))))
         .then((remote: Partial<HudState>) => {
           if (!healthy) onStatus?.(`live · ${root}`);
@@ -179,10 +182,10 @@ export function createRemoteModel(base: string, token: string, onStatus?: (msg: 
     togglePause() {
       state.workout.paused = !state.workout.paused;
       state.spotify.playing = !state.workout.paused;
-      fetch(`${root}/pause`, { method: 'POST', headers }).catch(() => {});
+      fetch(`${root}/pause${q}`, { method: 'POST', headers }).catch(() => {});
     },
     skipTrack() {
-      fetch(`${root}/skip`, { method: 'POST', headers }).catch(() => {});
+      fetch(`${root}/skip${q}`, { method: 'POST', headers }).catch(() => {});
     },
   };
   return model;
