@@ -40,13 +40,24 @@ async function main() {
   ];
   let created = '';
   const report: string[] = [];
-  for (const [name, make] of variants) {
+  // A page from a previous load of this app may still be on the glasses (hot
+  // reload, re-scan, reconnect). The firmware refuses a second create with
+  // "invalid"; rebuild replaces the existing page instead.
+  {
+    const r = await bridge.createStartUpPageContainer(pageSpec());
+    report.push(`create:${StartUpPageCreateResult[r] ?? r}`);
+    if (r === StartUpPageCreateResult.success) created = 'full';
+    else if (await bridge.rebuildPageContainer(pageSpec())) { created = 'full'; report.push('rebuild:ok'); }
+    else report.push('rebuild:refused');
+  }
+  for (const [name, make] of created ? [] : variants.slice(1)) {
     let r: any;
     try { r = await bridge.createStartUpPageContainer(make()); } catch (e: any) { r = 'threw ' + (e?.message ?? e); }
     const label = typeof r === 'number' ? (StartUpPageCreateResult[r] ?? String(r)) : String(r);
     report.push(`${name}:${label}`);
     console.log('[hud] create', name, label);
     if (r === StartUpPageCreateResult.success) { created = name; break; }
+    if (await bridge.rebuildPageContainer(make())) { created = name; report.push('rebuild:ok'); break; }
   }
   if (!created) {
     // Ask the phone directly and show its unparsed answer, plus what it says about the glasses.

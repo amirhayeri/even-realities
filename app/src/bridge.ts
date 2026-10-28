@@ -4,12 +4,13 @@
 
 import {
   waitForEvenAppBridge, OsEventTypeList, StartUpPageCreateResult, ImageRawDataUpdateResult,
-  CreateStartUpPageContainer, TextContainerUpgrade, ImageRawDataUpdate,
+  CreateStartUpPageContainer, RebuildPageContainer, TextContainerUpgrade, ImageRawDataUpdate,
   type EvenHubEvent,
 } from '@evenrealities/even_hub_sdk';
 
 export interface GlassesBridge {
   createStartUpPageContainer(spec: any): Promise<StartUpPageCreateResult>;
+  rebuildPageContainer(spec: any): Promise<boolean>;
   textContainerUpgrade(u: { containerID: number; containerName: string; content: string; textColor?: number }): Promise<boolean>;
   updateImageRawData(u: { containerID: number; containerName: string; imageData: Uint8Array }): Promise<ImageRawDataUpdateResult>;
   shutDownPageContainer(mode?: number): Promise<boolean>;
@@ -32,6 +33,7 @@ export async function getBridge(): Promise<GlassesBridge> {
     return {
       kind: 'even',
       createStartUpPageContainer: (spec) => b.createStartUpPageContainer(new CreateStartUpPageContainer(spec)),
+      rebuildPageContainer: (spec) => b.rebuildPageContainer(new RebuildPageContainer(spec)),
       textContainerUpgrade: (u) => b.textContainerUpgrade(new TextContainerUpgrade(u)),
       updateImageRawData: (u) => b.updateImageRawData(new ImageRawDataUpdate(u)),
       shutDownPageContainer: (m = 0) => b.shutDownPageContainer(m),
@@ -132,6 +134,7 @@ function createPreviewBridge(): GlassesBridge {
 
   return {
     kind: 'preview',
+    async rebuildPageContainer(spec) { return (await this.createStartUpPageContainer(spec)) === StartUpPageCreateResult.success; },
     async createStartUpPageContainer(spec) {
       images.clear(); texts.clear();
       for (const im of spec.imageObject ?? []) images.set(im.containerID, { x: im.xPosition, y: im.yPosition, w: im.width, h: im.height });
