@@ -1,0 +1,156 @@
+import Foundation
+import HealthKit
+import Combine
+
+/// Owns the HealthKit workout session. Starting here instead of Apple's Workout
+/// app is what makes live heart rate available: the session is ours, so the
+/// builder hands us every sample as it arrives. Rings and Fitness history fill
+/// exactly as they would with Apple's app, it is the same HKWorkout.
+@MainActor
+final class WorkoutManager: NSObject, ObservableObject {
+    enum Kind: String, CaseIterable, Identifiable {
+        case run = "Run", walk = "Walk", strength = "Strength", cycle = "Cycle", hiit = "HIIT"
+        var id: String { rawValue }
+        var activity: HKWorkoutActivityType {
+            switch self {
+            case .run: return .running
+            case .walk: return .walking
+            case .strength: return .traditionalStrengthTraining
+            case .cycle: return .cycling
+            case .hiit: return .highIntensityIntervalTraining
+            }
+        }
+        var location: HKWorkoutSessionLocationType { self == .strength || self == .hiit ? .indoor : .outdoor }
+        var endpointType: String { rawValue.lowercased() }
+    }
+
+    @Published var kind: Kind = .run
+    @Published var running = false
+    @Published var paused = false
+    @Published var heartRate: Double = 0
+    @Published var steps: Double = 0
+    @Published var activeKcal: Double = 0
+    @Published var distanceM: Double = 0
+    @Published var elapsed: TimeInterval = 0
+    @Published var authorized = false
+    @Published var status = "idle"
+
+    private let store = HKHealthStore()
+    private var session: HKWorkoutSession?
+    private var builder: HKLiveWorkoutBuilder?
+    private var timer: Timer?
+    private var lastUpload = Date.distantPast
+    private let uploader = Uploader()
+
+    func requestAuthorization() async {
+        guard HKHealthStore.isHealthDataAvailable() else { status = "no HealthKit"; return }
+        let read: Set<HKObjectType> = [
+            HKQuantityType(.heartRate), HKQuantityType(.stepCount),
+            HKQuantityType(.activeEnergyBurned), HKQuantityType(.distanceWalkingRunning),
+            HKQuantityType(.distanceCycling), HKObjectType.activitySummaryType(),
+        ]
+        let share: Set<HKSampleType> = [HKQuantityType.workoutType(), HKQuantityType(.activeEnergyBurned), HKQuantityType(.distanceWalkingRunning), HKQuantityType(.heartRate)]
+        do {
+            try await store.requestAuthorization(toShare: share, read: read)
+            authorized = true
+            status = "ready"
+        } catch {
+            status = "auth failed: \(error.localizedDescription)"
+        }
+    }
+
+    func start() {
+        guard !running else { return }
+        let config = HKWorkoutConfiguration()
+        config.activityType = kind.activity
+        config.locationType = kind.location
+        do {
+            let s = try HKWorkoutSession(healthStore: store, configuration: config)
+            let b = s.associatedWorkoutBuilder()
+            b.dataSource = HKLiveWorkoutDataSource(healthStore: store, workoutConfiguration: config)
+            s.delegate = self
+            b.delegate = self
+            session = s; builder = b
+            let now = Date()
+            s.startActivity(with: now)
+            b.beginCollection(withStart: now) { [weak self] ok, err in
+                Task { @MainActor in
+                    guard let self else { return }
+                    if ok { self.running = true; self.paused = false; self.status = "live"; self.uploader.workoutStart(type: self.kind.endpointType, startedAt: now); self.startTimer() }
+                    else { self.status = "start failed: \(err?.localizedDescription ?? "?")" }
+                }
+            }
+        } catch {
+            status = "session error: \(error.localizedDescription)"
+        }
+    }
+
+    func togglePause() {
+        guard let session else { return }
+        if paused { session.resume() } else { session.pause() }
+        paused.toggle()
+    }
+
+    func end() {
+        guard let session, let builder else { return }
+        timer?.invalidate(); timer = nil
+        session.end()
+        builder.endCollection(withEnd: Date()) { [weak self] _, _ in
+            builder.finishWorkout { _, _ in
+                Task { @MainActor in
+                    guard let self else { return }
+                    self.running = false; self.paused = false; self.status = "saved"
+                    self.uploader.workoutEnd()
+                    self.session = nil; self.builder = nil
+                }
+            }
+        }
+    }
+
+    private func startTimer() {
+        timer?.invalidate()
+        timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, let b = self.builder else { return }
+                self.elapsed = b.elapsedTime
+                self.readStats()
+                if Date().timeIntervalSince(self.lastUpload) >= 1 {
+                    self.lastUpload = Date()
+                    self.uploader.health(hr: self.heartRate > 0 ? self.heartRate : nil, steps: self.steps, kcal: self.activeKcal, distanceM: self.distanceM)
+                    self.status = self.uploader.lastStatus.isEmpty ? "live" : self.uploader.lastStatus
+                }
+            }
+        }
+    }
+
+    private func readStats() {
+        guard let b = builder else { return }
+        if let hr = b.statistics(for: HKQuantityType(.heartRate))?.mostRecentQuantity()?.doubleValue(for: .count().unitDivided(by: .minute())) { heartRate = hr }
+        if let kcal = b.statistics(for: HKQuantityType(.activeEnergyBurned))?.sumQuantity()?.doubleValue(for: .kilocalorie()) { activeKcal = kcal }
+        let distType: HKQuantityType = kind == .cycle ? HKQuantityType(.distanceCycling) : HKQuantityType(.distanceWalkingRunning)
+        if let d = b.statistics(for: distType)?.sumQuantity()?.doubleValue(for: .meter()) { distanceM = d }
+        if let st = b.statistics(for: HKQuantityType(.stepCount))?.sumQuantity()?.doubleValue(for: .count()) { steps = st }
+    }
+}
+
+extension WorkoutManager: HKWorkoutSessionDelegate {
+    nonisolated func workoutSession(_ s: HKWorkoutSession, didChangeTo to: HKWorkoutSessionState, from: HKWorkoutSessionState, date: Date) {
+        Task { @MainActor in
+            switch to {
+            case .running: self.paused = false
+            case .paused: self.paused = true
+            default: break
+            }
+        }
+    }
+    nonisolated func workoutSession(_ s: HKWorkoutSession, didFailWithError error: Error) {
+        Task { @MainActor in self.status = "session failed: \(error.localizedDescription)" }
+    }
+}
+
+extension WorkoutManager: HKLiveWorkoutBuilderDelegate {
+    nonisolated func workoutBuilder(_ b: HKLiveWorkoutBuilder, didCollectDataOf types: Set<HKSampleType>) {
+        Task { @MainActor in self.readStats() }
+    }
+    nonisolated func workoutBuilderDidCollectEvent(_ b: HKLiveWorkoutBuilder) {}
+}
