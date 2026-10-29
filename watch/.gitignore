@@ -2,3 +2,5 @@ BioHUDWatch/Config.swift
 *.xcodeproj
 xcuserdata/
 DerivedData/
+BioHUDWatch/Info.plist
+BioHUDWatch/BioHUDWatch.entitlements
