@@ -16,7 +16,9 @@ targets:
   BioHUDWatch:
     type: application
     platform: watchOS
-    sources: [BioHUDWatch]
+    sources:
+      - path: BioHUDWatch
+        excludes: [Config.example.swift]
     entitlements:
       path: BioHUDWatch/BioHUDWatch.entitlements
       properties:
