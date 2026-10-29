@@ -1,7 +1,7 @@
 {
   "name": "even-hud",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.1.2",
   "type": "module",
   "scripts": {
     "dev": "vite --port 5173 --host",
@@ -9,7 +9,8 @@
     "preview": "vite preview --port 5173 --host",
     "sim": "evenhub-simulator http://localhost:5173 --automation-port 9898",
     "qr": "evenhub qr --port 5173",
-    "pack": "evenhub pack app.json dist -o even-hud.ehpk"
+    "pack": "evenhub pack app.json dist -o even-hud.ehpk",
+    "release": "node release.mjs"
   },
   "dependencies": {
     "@evenrealities/even_hub_sdk": "0.0.16",

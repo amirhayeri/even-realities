@@ -76,14 +76,35 @@ export function workoutLines(s: HudState): [string, string] {
   ];
 }
 
+/** Three anchored runs on one line: left, centre, right, padded with spaces. */
+export function spread3(left: string, mid: string, right: string, widthPx = TEXT_W): string {
+  const l = getTextWidth(left), m = getTextWidth(mid), r = getTextWidth(right);
+  const gapL = Math.max(SPACE_W, (widthPx - m) / 2 - l);
+  const gapR = Math.max(SPACE_W, widthPx - l - gapL - m - r);
+  return left + ' '.repeat(Math.max(1, Math.floor(gapL / SPACE_W))) + mid + ' '.repeat(Math.max(1, Math.floor(gapR / SPACE_W))) + right;
+}
+
+export function dateText(s: HudState): string {
+  const d = new Date(s.now);
+  return `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()]} ${d.getDate()} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()]}`;
+}
+
+export function batteryText(s: HudState): string {
+  return typeof s.battery === 'number' ? `${s.battery}%` : '';
+}
+
+/** Bottom row on every screen: clock left, date centre, glasses battery right. */
+export function bottomLine(s: HudState): string {
+  return spread3(clockText(s), dateText(s), batteryText(s));
+}
+
 export function clockText(s: HudState): string {
   const d = new Date(s.now);
   return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-/** One quiet line on the bottom row: clock, glucose if the endpoint has it, glasses battery. */
+/** One quiet line on the bottom row: clock and glucose left, date centre, glasses battery right. */
 export function ambientLine(s: HudState): string {
   const g = s.glucose ? `${s.glucose.mmol.toFixed(1)} ${({ up: '↗', flat: '→', down: '↘', doubleUp: '⇈', doubleDown: '⇊' })[s.glucose.trend]}` : '';
-  const right = typeof s.battery === 'number' ? `${s.battery}%` : '';
-  return spread(`${clockText(s)}   ${g}`.trim(), right);
+  return spread3(`${clockText(s)}   ${g}`.trim(), dateText(s), batteryText(s));
 }

@@ -6,7 +6,7 @@ import { CreateStartUpPageContainer, OsEventTypeList, StartUpPageCreateResult, T
 import { getBridge } from './bridge';
 import { createMockModel, createRemoteModel, type Model } from './model';
 import { drawActivityTile, drawBlankTile, drawHrTile, drawSongStrip, newStrip, newTile, toPng } from './draw';
-import { DIM, IDS, MENU, NAMES, ambientLine, clockText, pageSpec, workoutLines } from './layout';
+import { DIM, IDS, MENU, NAMES, ambientLine, bottomLine, pageSpec, workoutLines } from './layout';
 import { createWriteQueue } from './queue';
 
 const TICK_MS = 1000;
@@ -140,7 +140,7 @@ async function main() {
       const lines = workoutLines(s);
       pushText(IDS.l1, NAMES.l1, lines[0], 0);
       pushText(IDS.l2, NAMES.l2, lines[1], 1, DIM);
-      pushText(IDS.clock, NAMES.clock, clockText(s), 2, 2);
+      pushText(IDS.clock, NAMES.clock, bottomLine(s), 2, 2);
     } else {
       if ((modeChanged || force) && hasTiles) {
         drawBlankTile(hrTile); drawBlankTile(actTile); drawBlankTile(songStrip);
