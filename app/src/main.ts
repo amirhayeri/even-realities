@@ -4,7 +4,7 @@
 
 import { CreateStartUpPageContainer, OsEventTypeList, StartUpPageCreateResult, TextContainerProperty, type EvenHubEvent } from '@evenrealities/even_hub_sdk';
 import { getBridge } from './bridge';
-import { createMockModel, createRemoteModel, type Model } from './model';
+import { createMockModel, createRemoteModel, zoneOf, type Model } from './model';
 import { drawActivityTile, drawBlankTile, drawHrTile, drawSongStrip, newStrip, newTile, toPng } from './draw';
 import { DIM, IDS, MENU, NAMES, ambientLine, bottomLine, pageSpec, workoutLines } from './layout';
 import { createWriteQueue } from './queue';
@@ -102,6 +102,7 @@ async function main() {
   const q = createWriteQueue();
   let awakeUntil = Date.now() + AWAKE_MS;
   let asleep = false;
+  let lastZone = 0;
   const hrTile = newTile();
   const actTile = newTile();
   const songStrip = newStrip();
@@ -217,6 +218,12 @@ async function main() {
     const s = model.state;
     const mode = s.workout.active ? 'workout' : 'ambient';
     if (mode !== lastMode) { render(); return; }    // state change: render() wakes the lens itself
+    // Zone change during a workout wakes the lens so you see it happen.
+    if (s.workout.active && s.workout.hr > 0) {
+      const z = zoneOf(s.workout.hr, s.workout.hrMax).n;
+      if (lastZone !== 0 && z !== lastZone) wake(`zone ${lastZone}→${z}`);
+      lastZone = z;
+    } else lastZone = 0;
     if (!asleep && now > awakeUntil) { sleep(); return; }
     if (!asleep) render();
   }, TICK_MS);
