@@ -4,7 +4,7 @@
 
 import {
   waitForEvenAppBridge, OsEventTypeList, StartUpPageCreateResult, ImageRawDataUpdateResult,
-  CreateStartUpPageContainer, RebuildPageContainer, TextContainerUpgrade, ImageRawDataUpdate,
+  CreateStartUpPageContainer, RebuildPageContainer, TextContainerUpgrade, ImageRawDataUpdate, ImuReportPace,
   type EvenHubEvent,
 } from '@evenrealities/even_hub_sdk';
 
@@ -19,6 +19,8 @@ export interface GlassesBridge {
   onBattery(cb: (pct: number) => void): void;
   /** Raw host call, for diagnostics: returns whatever the Even app replied, unparsed. */
   raw(method: string, params: any): Promise<any>;
+  /** Start or stop IMU reports (arrive as sysEvent IMU_DATA_REPORT). */
+  imuControl(on: boolean): Promise<boolean>;
   readonly kind: 'even' | 'preview';
 }
 
@@ -43,6 +45,7 @@ export async function getBridge(): Promise<GlassesBridge> {
         b.onDeviceStatusChanged(st => { if (typeof st.batteryLevel === 'number') cb(st.batteryLevel); });
       },
       raw: (method, params) => b.callEvenApp(method, params),
+      imuControl: (on) => b.imuControl(on, ImuReportPace.P500),
     };
   }
   return createPreviewBridge();
@@ -114,6 +117,10 @@ function createPreviewBridge(): GlassesBridge {
     else if (ev.key === 'ArrowUp') emit(sysEvent(OsEventTypeList.SCROLL_TOP_EVENT));
     else if (ev.key === 'ArrowDown') emit(sysEvent(OsEventTypeList.SCROLL_BOTTOM_EVENT));
     else if (ev.key === ' ') { ev.preventDefault(); emit(sysEvent(OsEventTypeList.CLICK_EVENT)); }
+    else if (ev.key === 'u' || ev.key === 'U') {
+      // Simulated look-up: a burst of IMU samples that deviate from the resting baseline.
+      for (let i = 0; i < 6; i++) emit({ sysEvent: { eventType: OsEventTypeList.IMU_DATA_REPORT, imuData: { x: 0, y: i < 3 ? 1000 : 0, z: 1000 } } as any });
+    }
   });
 
   async function tint(png: Uint8Array): Promise<ImageBitmap> {
@@ -166,5 +173,6 @@ function createPreviewBridge(): GlassesBridge {
     onEvenHubEvent(cb) { listeners.add(cb); return () => listeners.delete(cb); },
     onBattery() { /* no glasses in the preview */ },
     async raw() { return 'preview'; },
+    async imuControl() { return true; },
   };
 }

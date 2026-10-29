@@ -10,6 +10,28 @@ import { DIM, IDS, MENU, NAMES, ambientLine, bottomLine, pageSpec, workoutLines 
 import { createWriteQueue } from './queue';
 
 const TICK_MS = 1000;
+const AWAKE_MS = 15_000;          // lens goes dark this long after the last wake
+
+/** Look-up detector on raw IMU samples. Unit-agnostic: fires when the vector
+ *  swings away from a slow rolling baseline, then settles. */
+function createLookUp(onLookUp: () => void) {
+  let base: [number, number, number] | null = null;
+  let hot = 0, cooldownUntil = 0;
+  return (x: number, y: number, z: number) => {
+    if (!base) { base = [x, y, z]; return; }
+    const norm = Math.hypot(...base) || 1;
+    const dev = Math.hypot(x - base[0], y - base[1], z - base[2]) / norm;
+    const now = Date.now();
+    if (dev > 0.35) {
+      hot++;
+      if (hot >= 2 && now > cooldownUntil) { cooldownUntil = now + 3000; onLookUp(); }
+    } else {
+      hot = 0;
+      // Follow slow posture changes so a new resting head angle becomes the baseline.
+      base = [base[0] + (x - base[0]) * 0.1, base[1] + (y - base[1]) * 0.1, base[2] + (z - base[2]) * 0.1];
+    }
+  };
+}
 const status = (msg: string) => { const el = document.getElementById('status'); if (el) el.textContent = msg; };
 
 async function main() {
@@ -22,8 +44,8 @@ async function main() {
   if (endpoint) status(`connecting to ${endpoint}…`);
   const hint = document.getElementById('hint');
   if (hint) hint.textContent = endpoint
-    ? 'Browser preview on live data. Click = tap. M = menu. ↑/↓ = swipe.'
-    : 'Browser preview. Click = tap. M = menu. No Even app bridge found, so data is mocked.';
+    ? 'Browser preview on live data. Click = tap. M = menu. ↑/↓ = swipe. U = look-up.'
+    : 'Browser preview. Click = tap. M = menu. U = look-up. No Even app bridge found, so data is mocked.';
 
   // Create the page. If the firmware rejects the full layout, step down through
   // simpler variants so the lens still shows something and the phone page says
@@ -78,6 +100,8 @@ async function main() {
 
   bridge.onBattery(pct => { model.state.battery = pct; });
   const q = createWriteQueue();
+  let awakeUntil = Date.now() + AWAKE_MS;
+  let asleep = false;
   const hrTile = newTile();
   const actTile = newTile();
   const songStrip = newStrip();
@@ -86,10 +110,38 @@ async function main() {
   let lastMode: 'workout' | 'ambient' | '' = '';
   let tick = 0;
 
+  function wake(reason: string) {
+    awakeUntil = Date.now() + AWAKE_MS;
+    if (asleep) {
+      asleep = false;
+      console.log('[hud] wake:', reason);
+      lastText.fill(''); lastHrDrawn = -1; lastMode = '';
+      render(true);
+    }
+  }
+  function sleep() {
+    asleep = true;
+    console.log('[hud] sleep');
+    drawBlankTile(hrTile); drawBlankTile(actTile); drawBlankTile(songStrip);
+    if (hasTiles) { pushImage(IDS.hr, NAMES.hr, hrTile); pushImage(IDS.act, NAMES.act, actTile); }
+    if (hasStrip) pushImage(IDS.song, NAMES.song, songStrip);
+    for (const [id, name, idx] of [[IDS.l1, NAMES.l1, 0], [IDS.l2, NAMES.l2, 1], [IDS.clock, NAMES.clock, 2]] as const) pushText(id, name, ' ', idx);
+  }
+  const lookUp = createLookUp(() => wake('look-up'));
+  bridge.imuControl(true).catch(() => {});
+
   // Input. Taps can arrive without an eventType depending on source, so an
   // untyped event on the capture container counts as a tap.
   let lastScroll = 0;
   bridge.onEvenHubEvent((e: EvenHubEvent) => {
+    if (e.sysEvent?.eventType === OsEventTypeList.IMU_DATA_REPORT) {
+      const d = e.sysEvent.imuData; if (d) lookUp(d.x ?? 0, d.y ?? 0, d.z ?? 0);
+      return;
+    }
+    if (e.audioEvent) return;
+    const wasAsleep = asleep;
+    wake('input');
+    if (wasAsleep) return;                       // first touch only wakes the lens
     const menu = e.menuItemClickEvent?.itemID;
     if (menu === MENU.pause && !model.state.workout.paused) model.togglePause();
     else if (menu === MENU.resume && model.state.workout.paused) model.togglePause();
@@ -126,6 +178,7 @@ async function main() {
     const s = model.state;
     const mode = s.workout.active ? 'workout' : 'ambient';
     const modeChanged = mode !== lastMode;
+    if (modeChanged && lastMode) { awakeUntil = Date.now() + AWAKE_MS; if (asleep) { asleep = false; lastText.fill(''); lastHrDrawn = -1; force = true; } }
     lastMode = mode;
 
     if (mode === 'workout') {
@@ -161,7 +214,11 @@ async function main() {
     model.tick(now - last);
     last = now;
     tick++;
-    render();
+    const s = model.state;
+    const mode = s.workout.active ? 'workout' : 'ambient';
+    if (mode !== lastMode) { render(); return; }    // state change: render() wakes the lens itself
+    if (!asleep && now > awakeUntil) { sleep(); return; }
+    if (!asleep) render();
   }, TICK_MS);
 }
 
