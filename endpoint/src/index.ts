@@ -67,8 +67,13 @@ function defaultWorkout(): Workout {
   return { active: false, paused: false, type: '', startedAt: 0, pausedTotalMs: 0, hr: 0, hrAt: 0, steps: 0, activeKcal: 0, distanceM: 0, inZoneSec: 0, inZoneAt: 0 };
 }
 
+const MAX_WORKOUT_MS = 6 * 60 * 60 * 1000;
+
+/** A session nobody ended (phone died, automation missed) expires after six hours. */
 async function getWorkout(env: Env): Promise<Workout> {
-  return (await env.HUD.get(W_KEY, 'json') as Workout | null) ?? defaultWorkout();
+  const w = (await env.HUD.get(W_KEY, 'json') as Workout | null) ?? defaultWorkout();
+  if (w.active && Date.now() - w.startedAt > MAX_WORKOUT_MS) { w.active = false; w.paused = false; }
+  return w;
 }
 async function getRings(env: Env): Promise<Rings> {
   return (await env.HUD.get(R_KEY, 'json') as Rings | null) ?? { move: 0, moveGoal: 600, exercise: 0, exerciseGoal: 30, stand: 0, standGoal: 12 };
