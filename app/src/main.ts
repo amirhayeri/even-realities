@@ -6,7 +6,7 @@ import { CreateStartUpPageContainer, OsEventTypeList, StartUpPageCreateResult, T
 import { getBridge } from './bridge';
 import { createMockModel, createRemoteModel, zoneOf, type Model } from './model';
 import { drawActivityTile, drawBlankTile, drawHrTile, drawSongStrip, newStrip, newTile, toPng } from './draw';
-import { DIM, IDS, MENU, NAMES, ambientLine, bottomLine, pageSpec, workoutLines } from './layout';
+import { DIM, IDS, MENU, NAMES, ambientLeft, batteryText, clockText, dateText, pageSpec, workoutLines } from './layout';
 import { createWriteQueue } from './queue';
 
 const TICK_MS = 1000;
@@ -106,7 +106,7 @@ async function main() {
   const hrTile = newTile();
   const actTile = newTile();
   const songStrip = newStrip();
-  const lastText: string[] = ['', '', ''];
+  const lastText: string[] = ['', '', '', '', ''];
   let lastHrDrawn = -1;
   let lastMode: 'workout' | 'ambient' | '' = '';
   let tick = 0;
@@ -126,7 +126,7 @@ async function main() {
     drawBlankTile(hrTile); drawBlankTile(actTile); drawBlankTile(songStrip);
     if (hasTiles) { pushImage(IDS.hr, NAMES.hr, hrTile); pushImage(IDS.act, NAMES.act, actTile); }
     if (hasStrip) pushImage(IDS.song, NAMES.song, songStrip);
-    for (const [id, name, idx] of [[IDS.l1, NAMES.l1, 0], [IDS.l2, NAMES.l2, 1], [IDS.clock, NAMES.clock, 2]] as const) pushText(id, name, ' ', idx);
+    for (const [id, name, idx] of [[IDS.l1, NAMES.l1, 0], [IDS.l2, NAMES.l2, 1], [IDS.clock, NAMES.clock, 2], [IDS.date, NAMES.date, 3], [IDS.batt, NAMES.batt, 4]] as const) pushText(id, name, ' ', idx);
   }
   const lookUp = createLookUp(() => wake('look-up'));
   bridge.imuControl(true).catch(() => {});
@@ -194,7 +194,9 @@ async function main() {
       const lines = workoutLines(s);
       pushText(IDS.l1, NAMES.l1, lines[0], 0);
       pushText(IDS.l2, NAMES.l2, lines[1], 1, DIM);
-      pushText(IDS.clock, NAMES.clock, bottomLine(s), 2, 2);
+      pushText(IDS.clock, NAMES.clock, clockText(s), 2, 2);
+      pushText(IDS.date, NAMES.date, dateText(s), 3, 2);
+      pushText(IDS.batt, NAMES.batt, batteryText(s) || ' ', 4, 2);
     } else {
       if ((modeChanged || force) && hasTiles) {
         drawBlankTile(hrTile); drawBlankTile(actTile); drawBlankTile(songStrip);
@@ -204,7 +206,9 @@ async function main() {
       }
       pushText(IDS.l1, NAMES.l1, ' ', 0);
       pushText(IDS.l2, NAMES.l2, ' ', 1);
-      pushText(IDS.clock, NAMES.clock, ambientLine(s), 2, 1);
+      pushText(IDS.clock, NAMES.clock, ambientLeft(s), 2, 1);
+      pushText(IDS.date, NAMES.date, dateText(s), 3, 1);
+      pushText(IDS.batt, NAMES.batt, batteryText(s) || ' ', 4, 1);
     }
   }
 

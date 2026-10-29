@@ -11,8 +11,10 @@ export const LINE_H = 27;
 export const TEXT_X = 12;
 export const TEXT_W = SCREEN_W - 2 * TEXT_X;
 
-export const IDS = { hr: 1, act: 2, song: 3, l1: 4, l2: 5, clock: 6 } as const;
-export const NAMES = { hr: 'tile-hr', act: 'tile-act', song: 'strip-song', l1: 'line-1', l2: 'line-2', clock: 'clock' } as const;
+export const IDS = { hr: 1, act: 2, song: 3, l1: 4, l2: 5, clock: 6, date: 7, batt: 8 } as const;
+export const NAMES = { hr: 'tile-hr', act: 'tile-act', song: 'strip-song', l1: 'line-1', l2: 'line-2', clock: 'clock', date: 'date', batt: 'batt' } as const;
+/** Bottom row is three containers side by side: the firmware wraps long space runs, so no padding tricks. */
+export const BOTTOM = { clock: { x: 12, w: 200 }, date: { x: 212, w: 200 }, batt: { x: 480, w: 84 } } as const;
 /** Two text rows under the tiles, a 288x20 song-progress strip, then the clock bottom-left. */
 export const ROW_Y = [156, 194, 258] as const;
 export const STRIP = { x: 144, y: 234, w: 288, h: 20 } as const;
@@ -23,8 +25,8 @@ export function pageSpec() {
   // SDK class instances with every field the host parses, exactly like Even's
   // first-app sample: the host rejects a text container that omits the border
   // fields, and does so with the same "invalid" code as a bad layout.
-  const line = (id: number, name: string, row: number, capture = 0) => new TextContainerProperty({
-    xPosition: TEXT_X, yPosition: ROW_Y[row], width: TEXT_W, height: LINE_H + 3,
+  const line = (id: number, name: string, row: number, capture = 0, x = TEXT_X, w = TEXT_W) => new TextContainerProperty({
+    xPosition: x, yPosition: ROW_Y[row], width: w, height: LINE_H + 3,
     borderWidth: 0, borderColor: 0, borderRadius: 0, paddingLength: 0,
     containerID: id, containerName: name,
     content: ' ', textColor: 4, isEventCapture: capture, zOrderIndex: id,
@@ -33,7 +35,7 @@ export function pageSpec() {
     xPosition: x, yPosition: y, width: w, height: h, containerID: id, containerName: name, zOrderIndex: id,
   });
   return {
-    containerTotalNum: 6,
+    containerTotalNum: 8,
     imageObject: [
       image(IDS.hr, NAMES.hr, 0, 0, 288, 144),
       image(IDS.act, NAMES.act, 288, 0, 288, 144),
@@ -42,7 +44,9 @@ export function pageSpec() {
     textObject: [
       line(IDS.l1, NAMES.l1, 0, 1),
       line(IDS.l2, NAMES.l2, 1),
-      line(IDS.clock, NAMES.clock, 2),
+      line(IDS.clock, NAMES.clock, 2, 0, BOTTOM.clock.x, BOTTOM.clock.w),
+      line(IDS.date, NAMES.date, 2, 0, BOTTOM.date.x, BOTTOM.date.w),
+      line(IDS.batt, NAMES.batt, 2, 0, BOTTOM.batt.x, BOTTOM.batt.w),
     ],
     menuObject: new MenuContainerProperty({
       menuItems: [
@@ -76,14 +80,6 @@ export function workoutLines(s: HudState): [string, string] {
   ];
 }
 
-/** Three anchored runs on one line: left, centre, right, padded with spaces. */
-export function spread3(left: string, mid: string, right: string, widthPx = TEXT_W): string {
-  const l = getTextWidth(left), m = getTextWidth(mid), r = getTextWidth(right);
-  const gapL = Math.max(SPACE_W, (widthPx - m) / 2 - l);
-  const gapR = Math.max(SPACE_W, widthPx - l - gapL - m - r);
-  return left + ' '.repeat(Math.max(1, Math.floor(gapL / SPACE_W))) + mid + ' '.repeat(Math.max(1, Math.floor(gapR / SPACE_W))) + right;
-}
-
 export function dateText(s: HudState): string {
   const d = new Date(s.now);
   return `${['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][d.getDay()]} ${d.getDate()} ${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()]}`;
@@ -93,18 +89,13 @@ export function batteryText(s: HudState): string {
   return typeof s.battery === 'number' ? `${s.battery}%` : '';
 }
 
-/** Bottom row on every screen: clock left, date centre, glasses battery right. */
-export function bottomLine(s: HudState): string {
-  return spread3(clockText(s), dateText(s), batteryText(s));
-}
-
 export function clockText(s: HudState): string {
   const d = new Date(s.now);
   return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
-/** One quiet line on the bottom row: clock and glucose left, date centre, glasses battery right. */
-export function ambientLine(s: HudState): string {
+/** Ambient: the clock slot also carries glucose when the endpoint has it. */
+export function ambientLeft(s: HudState): string {
   const g = s.glucose ? `${s.glucose.mmol.toFixed(1)} ${({ up: '↗', flat: '→', down: '↘', doubleUp: '⇈', doubleDown: '⇊' })[s.glucose.trend]}` : '';
-  return spread3(`${clockText(s)}   ${g}`.trim(), dateText(s), batteryText(s));
+  return `${clockText(s)}   ${g}`.trim();
 }
