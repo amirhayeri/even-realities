@@ -48,9 +48,7 @@ final class WorkoutManager: NSObject, ObservableObject {
         // one needs share permission or the builder drops into an error state.
         let quantities: [HKQuantityTypeIdentifier] = [
             .heartRate, .stepCount, .activeEnergyBurned, .basalEnergyBurned,
-            .distanceWalkingRunning, .distanceCycling, .runningSpeed, .runningPower,
-            .runningStrideLength, .runningVerticalOscillation, .runningGroundContactTime,
-            .cyclingSpeed, .cyclingPower, .cyclingCadence,
+            .distanceWalkingRunning, .distanceCycling,
         ]
         var read: Set<HKObjectType> = Set(quantities.map { HKQuantityType($0) })
         read.insert(HKObjectType.activitySummaryType())
@@ -62,6 +60,25 @@ final class WorkoutManager: NSObject, ObservableObject {
             status = "ready"
         } catch {
             status = "auth failed: \(error.localizedDescription)"
+        }
+        recoverStaleSession()
+    }
+
+    /// watchOS keeps a workout session alive after the app quits. A new session
+    /// cannot start while one exists, so end any leftover one at launch.
+    private func recoverStaleSession() {
+        store.recoverActiveWorkoutSession { [weak self] session, error in
+            Task { @MainActor in
+                guard let self else { return }
+                if let session {
+                    self.status = "ending a leftover session…"
+                    session.end()
+                    let b = session.associatedWorkoutBuilder()
+                    b.endCollection(withEnd: Date()) { _, _ in b.finishWorkout { _, _ in Task { @MainActor in self.status = "ready" } } }
+                } else if let error {
+                    self.status = "ready (\(error.localizedDescription))"
+                }
+            }
         }
     }
 
@@ -84,7 +101,8 @@ final class WorkoutManager: NSObject, ObservableObject {
                     guard let self else { return }
                     if ok { self.running = true; self.paused = false; self.status = "live"; self.uploader.workoutStart(type: self.kind.endpointType, startedAt: now); self.startTimer() }
                     else {
-                        self.status = "start failed: \(err?.localizedDescription ?? "check Health permissions")"
+                        let ns = err as NSError?
+                        self.status = "start failed [\(ns?.code ?? 0)]: \(ns?.localizedDescription ?? "no error given")"
                         s.end(); self.session = nil; self.builder = nil
                     }
                 }
@@ -153,7 +171,8 @@ extension WorkoutManager: HKWorkoutSessionDelegate {
         }
     }
     nonisolated func workoutSession(_ s: HKWorkoutSession, didFailWithError error: Error) {
-        Task { @MainActor in self.status = "session failed: \(error.localizedDescription)" }
+        let ns = error as NSError
+        Task { @MainActor in self.status = "session failed [\(ns.domain) \(ns.code)]: \(ns.localizedDescription)" }
     }
 }
 
