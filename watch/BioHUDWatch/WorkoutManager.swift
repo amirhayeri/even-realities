@@ -57,7 +57,7 @@ final class WorkoutManager: NSObject, ObservableObject {
         do {
             try await store.requestAuthorization(toShare: share, read: read)
             authorized = true
-            status = "ready"
+            status = permissionSummary()
         } catch {
             status = "auth failed: \(error.localizedDescription)"
         }
@@ -74,7 +74,7 @@ final class WorkoutManager: NSObject, ObservableObject {
                     self.status = "ending a leftover session…"
                     session.end()
                     let b = session.associatedWorkoutBuilder()
-                    b.endCollection(withEnd: Date()) { _, _ in b.finishWorkout { _, _ in Task { @MainActor in self.status = "ready" } } }
+                    b.endCollection(withEnd: Date()) { _, _ in b.finishWorkout { _, _ in Task { @MainActor in self.status = self.permissionSummary() } } }
                 } else if let error {
                     self.status = "ready (\(error.localizedDescription))"
                 }
@@ -82,8 +82,24 @@ final class WorkoutManager: NSObject, ObservableObject {
         }
     }
 
+    /// Plain-language HealthKit status for the screen: the workout write
+    /// permission is the one that stops a session from starting.
+    func permissionSummary() -> String {
+        func name(_ st: HKAuthorizationStatus) -> String {
+            switch st { case .sharingAuthorized: return "yes"; case .sharingDenied: return "DENIED"; default: return "not asked" }
+        }
+        let w = store.authorizationStatus(for: HKQuantityType.workoutType())
+        let hr = store.authorizationStatus(for: HKQuantityType(.heartRate))
+        let e = store.authorizationStatus(for: HKQuantityType(.activeEnergyBurned))
+        return "write workouts: \(name(w)) · HR: \(name(hr)) · energy: \(name(e))"
+    }
+
     func start() {
         guard !running else { return }
+        // Make sure the write permission exists before touching a session.
+        let w = store.authorizationStatus(for: HKQuantityType.workoutType())
+        if w == .notDetermined { Task { await requestAuthorization(); if store.authorizationStatus(for: HKQuantityType.workoutType()) == .sharingAuthorized { start() } }; status = "asking for Health permission…"; return }
+        if w == .sharingDenied { status = "Workouts write is OFF. Watch: Settings → Privacy & Security → Health → Bio HUD"; return }
         let config = HKWorkoutConfiguration()
         config.activityType = kind.activity
         config.locationType = kind.location
