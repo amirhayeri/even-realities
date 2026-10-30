@@ -33,11 +33,31 @@ glucose are waiting on a data source.
    Then set `BASE_URL` in `endpoint/wrangler.toml`, redeploy, add the new
    `/spotify/callback` to the Spotify app, and update `VITE_HUD_ENDPOINT` in `app/.env`.
 
+## Watch app status (2026-10-30)
+
+The watchOS app in `watch/` **compiles and archives** (Xcode on the Mac, team
+9CT62KKWY2, bundle `tech.bioconscious.biohud.watchos`). It is **not installed**
+yet: Xcode never saw the physical Watch, only a simulator. A TestFlight upload
+was attempted and refused: a watch-only archive cannot use the App Store export
+method without an iOS container app.
+
+**Direct install, the fast path** (needs the phone on a cable once):
+1. iPhone → Settings → Privacy & Security → Developer Mode → on, restart phone.
+2. Watch → Settings → Privacy & Security → Developer Mode → on, restart watch.
+3. Plug the iPhone into the Mac with a cable, tap Trust. Watch on the wrist,
+   unlocked, same Wi‑Fi as the Mac.
+4. Xcode → Window → Devices and Simulators: the Watch appears under the phone.
+5. `cd ~/even-realities/watch && ./make-config.sh && xcodegen && open BioHUDWatch.xcodeproj`,
+   pick the Watch as destination, Run. Trust the developer on the Watch when asked.
+
+**TestFlight, the slow path**: add a minimal iOS container target so the
+archive is uploadable, then upload and install via the TestFlight app. Only
+worth it if step 4 above never shows the Watch.
+
 ## Next build sessions (Claude)
 
-5. **watchOS app**: start/stop a workout session, stream HR at 1 Hz plus steps,
-   kcal, distance to the Worker through the phone. Replaces 2 and 3. Needs Xcode
-   and an Apple developer account on your side to build and install.
+5. **watchOS app install** per the status above; then tune: Swift 6 warning in
+   WorkoutManager.swift:101, step count source if the builder does not provide it.
 6. **Glucose feed**: a URL returning `{"mmol","trend","delta15","pred30"}`,
    set as `GLUCOSE_URL` in `endpoint/wrangler.toml`. Lights up the Bio detail
    screen and the forecast.
