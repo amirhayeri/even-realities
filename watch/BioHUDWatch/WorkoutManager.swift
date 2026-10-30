@@ -44,12 +44,18 @@ final class WorkoutManager: NSObject, ObservableObject {
 
     func requestAuthorization() async {
         guard HKHealthStore.isHealthDataAvailable() else { status = "no HealthKit"; return }
-        let read: Set<HKObjectType> = [
-            HKQuantityType(.heartRate), HKQuantityType(.stepCount),
-            HKQuantityType(.activeEnergyBurned), HKQuantityType(.distanceWalkingRunning),
-            HKQuantityType(.distanceCycling), HKObjectType.activitySummaryType(),
+        // The live builder writes every type it collects into the workout, so each
+        // one needs share permission or the builder drops into an error state.
+        let quantities: [HKQuantityTypeIdentifier] = [
+            .heartRate, .stepCount, .activeEnergyBurned, .basalEnergyBurned,
+            .distanceWalkingRunning, .distanceCycling, .runningSpeed, .runningPower,
+            .runningStrideLength, .runningVerticalOscillation, .runningGroundContactTime,
+            .cyclingSpeed, .cyclingPower, .cyclingCadence,
         ]
-        let share: Set<HKSampleType> = [HKQuantityType.workoutType(), HKQuantityType(.activeEnergyBurned), HKQuantityType(.distanceWalkingRunning), HKQuantityType(.heartRate)]
+        var read: Set<HKObjectType> = Set(quantities.map { HKQuantityType($0) })
+        read.insert(HKObjectType.activitySummaryType())
+        var share: Set<HKSampleType> = Set(quantities.map { HKQuantityType($0) })
+        share.insert(HKQuantityType.workoutType())
         do {
             try await store.requestAuthorization(toShare: share, read: read)
             authorized = true
@@ -77,7 +83,10 @@ final class WorkoutManager: NSObject, ObservableObject {
                 Task { @MainActor in
                     guard let self else { return }
                     if ok { self.running = true; self.paused = false; self.status = "live"; self.uploader.workoutStart(type: self.kind.endpointType, startedAt: now); self.startTimer() }
-                    else { self.status = "start failed: \(err?.localizedDescription ?? "?")" }
+                    else {
+                        self.status = "start failed: \(err?.localizedDescription ?? "check Health permissions")"
+                        s.end(); self.session = nil; self.builder = nil
+                    }
                 }
             }
         } catch {
