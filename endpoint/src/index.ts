@@ -8,15 +8,11 @@
 //   POST /pause  /skip             glasses gestures
 //   GET  /spotify/login            one-time browser visit to link Spotify
 //   GET  /spotify/callback         OAuth return
-//   GET  /google/login|callback    one-time Google link (Gmail + Calendar, read-only)
-//   GET  /morning ...              Morning HUD, see morning.ts
 //   GET  /health                   liveness, no auth
 
 import * as spotify from './spotify';
-import * as google from './google';
-import * as morning from './morning';
 
-export interface Env extends spotify.SpotifyEnv, morning.MorningEnv {
+export interface Env extends spotify.SpotifyEnv {
   HUD_TOKEN: string;
   WEATHER_LAT: string;
   WEATHER_LON: string;
@@ -172,53 +168,14 @@ export default {
       return text('Spotify linked. You can close this tab.');
     }
 
-    // ---- Google linking (browser, one time), same signed-state scheme ----
-    if (path === '/google/login') {
-      if (!authed(req, env)) return text('add ?token=HUD_TOKEN', 401);
-      if (!google.configured(env)) return text('set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET first (wrangler secret put)', 500);
-      const ts = String(Date.now());
-      return Response.redirect(google.loginUrl(env, `${ts}.${await hmac(env.HUD_TOKEN, ts)}`), 302);
-    }
-    if (path === '/google/callback') {
-      const code = url.searchParams.get('code'), state = url.searchParams.get('state') ?? '';
-      const err = url.searchParams.get('error');
-      if (err) return text(`Google said: ${err}`, 400);
-      const [ts, sig] = state.split('.');
-      const fresh = ts && Date.now() - Number(ts) < 10 * 60_000;
-      if (!code || !fresh || sig !== await hmac(env.HUD_TOKEN, ts)) return text('bad state (open /google/login again)', 400);
-      await google.handleCallback(env, code);
-      return text('Google linked (Gmail + Calendar, read-only). You can close this tab.');
-    }
-
     if (!authed(req, env)) return json({ error: 'unauthorized' }, 401);
     const now = Date.now();
     const hrMax = Number(env.HR_MAX) || 185;
 
-    // ---- Morning HUD ----
-    if (path === '/morning' && req.method === 'GET') {
-      // 60 s cache per Worker location: a lens poll costs Google nothing while you browse.
-      const cache = caches.default;
-      const key = new Request(`${url.origin}/morning#cache`);
-      if (!url.searchParams.has('fresh')) { const hit = await cache.match(key); if (hit) return hit; }
-      const b = await morning.briefing(env);
-      const res = new Response(JSON.stringify(b), { headers: { 'Content-Type': 'application/json', 'Cache-Control': 'max-age=60', ...CORS } });
-      ctx.waitUntil(cache.put(key, res.clone()));
-      return res;
-    }
-    if (path === '/morning/body' && req.method === 'GET') {
-      const id = url.searchParams.get('id') ?? '';
-      const b = await morning.body(env, id).catch(e => ({ error: String(e?.message ?? e) }));
-      return b ? json(b) : json({ error: 'not found' }, 404);
-    }
-
     // ---- Writes (POST from Shortcuts; GET with ?token= works too, for testing from a browser) ----
-    const writable = ['/workout/start', '/workout/end', '/pause', '/skip', '/health', '/morning/keep', '/morning/text', '/morning/call'];
+    const writable = ['/workout/start', '/workout/end', '/pause', '/skip', '/health'];
     if (req.method === 'POST' || (req.method === 'GET' && writable.includes(path))) {
       const body = req.method === 'POST' ? (await req.json().catch(() => ({})) as any) : Object.fromEntries(url.searchParams);
-
-      if (path === '/morning/keep') { await morning.keep(env, String(body.id ?? ''), body.keep !== false && body.keep !== 'false' && body.keep !== '0'); ctx.waitUntil(caches.default.delete(new Request(`${url.origin}/morning#cache`))); return json({ ok: true }); }
-      if (path === '/morning/text') { const it = await morning.addText(env, body); ctx.waitUntil(caches.default.delete(new Request(`${url.origin}/morning#cache`))); return json({ ok: true, item: it }); }
-      if (path === '/morning/call') { const it = await morning.addCall(env, body); ctx.waitUntil(caches.default.delete(new Request(`${url.origin}/morning#cache`))); return json({ ok: true, item: it }); }
 
       if (path === '/workout/start') {
         const w = defaultWorkout();

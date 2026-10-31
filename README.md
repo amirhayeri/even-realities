@@ -33,11 +33,12 @@ redirect URI, glasses beta release, Watch build, first run. Everything secret
 stays in git‑ignored files.
 
 ## Repo
+Office HUD, the morning briefing, is its own product and repo: https://github.com/amirhayeri/office-hud
+
 | Folder | What |
 |---|---|
 | `app/` | Even Hub app (TypeScript, Even Hub SDK). `npm run dev` previews the lens in a browser with a mock session. `npm run release` ships a beta. |
-| `morning/` | Morning HUD: a second Even Hub app. Four cards: glance, today, needs you, your day. Mail and calendar from Google, texts from an iPhone Shortcut. See `docs/morning.md`. |
-| `endpoint/` | Cloudflare Worker: workout state, health ingest, Spotify, weather, glucose, and the Morning briefing (`/morning`). |
+| `endpoint/` | Cloudflare Worker: workout state, health ingest, Spotify, weather, glucose. |
 | `watch/` | watchOS app: owns the HKWorkoutSession, playlist picker, streams to the Worker. |
 | `docs/` | Even Hub reference compiled from the SDK, design canvas notes, the Even Terminal runbook. |
 
