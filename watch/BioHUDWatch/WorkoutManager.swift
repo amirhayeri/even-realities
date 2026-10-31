@@ -90,7 +90,7 @@ final class WorkoutManager: NSObject, ObservableObject {
         store.recoverActiveWorkoutSession { [weak self] session, error in
             Task { @MainActor in
                 guard let self else { return }
-                if let session {
+                if let session, session.state != .ended, session.state != .notStarted {
                     self.status = "ending a leftover session…"
                     session.end()
                     let b = session.associatedWorkoutBuilder()
