@@ -12,6 +12,7 @@ export interface HudState {
     startedAt: number;               // ms epoch
     elapsedSec: number;
     hr: number;
+    hrAt: number;                    // ms epoch of the last HR sample, 0 = never
     hrMax: number;
     steps: number;
     activeKcal: number;
@@ -53,6 +54,18 @@ export function zoneOf(hr: number, hrMax: number) {
   return { n, name: names[n], lo, hi, pct, within };
 }
 
+/** Seconds since the last HR sample, or null when there has never been one. */
+export function hrAgeSec(s: HudState): number | null {
+  const at = s.workout.hrAt;
+  return at > 0 ? Math.max(0, (s.now - at) / 1000) : null;
+}
+
+export const HR_STALE_SEC = 300;
+export function hrStale(s: HudState): boolean {
+  const age = hrAgeSec(s);
+  return age === null || age > HR_STALE_SEC;
+}
+
 // ---------- Mock: a believable gym session that moves on its own ----------
 
 const TRACKS = [
@@ -72,7 +85,7 @@ export function createMockModel(seed = Date.now()): Model {
     now: Date.now(),
     workout: {
       active: true, paused: false, type: 'run', startedAt,
-      elapsedSec: 24 * 60 + 12, hr: 148, hrMax: 185,
+      elapsedSec: 24 * 60 + 12, hr: 148, hrAt: Date.now(), hrMax: 185,
       steps: 3412, activeKcal: 286, distanceM: 3140, inZoneSec: 870, zoneGoalSec: 1800,
     },
     spotify: {
@@ -109,6 +122,7 @@ export function createMockModel(seed = Date.now()): Model {
       if (sinceTargetChange > 20) { hrTarget = 135 + Math.round(rand() * 30); sinceTargetChange = 0; }
       w.hr += (hrTarget - w.hr) * 0.05 * dt + (rand() - 0.5) * 1.5;
       w.hr = Math.round(Math.max(90, Math.min(185, w.hr)) * 10) / 10;
+      w.hrAt = state.now;
 
       const z = zoneOf(w.hr, w.hrMax);
       if (z.n >= 3) w.inZoneSec += dt;
@@ -147,7 +161,7 @@ export function createRemoteModel(base: string, token: string, onStatus?: (msg: 
   // Start blank: nothing from the mock may leak onto a live screen.
   const state: HudState = {
     now: Date.now(),
-    workout: { active: false, paused: false, type: '', startedAt: 0, elapsedSec: 0, hr: 0, hrMax: 180, steps: 0, activeKcal: 0, distanceM: 0, inZoneSec: 0, zoneGoalSec: 1800 },
+    workout: { active: false, paused: false, type: '', startedAt: 0, elapsedSec: 0, hr: 0, hrAt: 0, hrMax: 180, steps: 0, activeKcal: 0, distanceM: 0, inZoneSec: 0, zoneGoalSec: 1800 },
     spotify: { playing: false, title: 'Connecting…', artist: '', positionMs: 0, durationMs: 0, queueCount: 0 },
     rings: { move: 0, moveGoal: 600, exercise: 0, exerciseGoal: 30, stand: 0, standGoal: 12 },
     battery: null,

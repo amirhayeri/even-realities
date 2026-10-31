@@ -268,7 +268,7 @@ export default {
         now,
         workout: {
           active: w.active, paused: w.paused, type: w.type, startedAt: w.startedAt, elapsedSec,
-          hr: w.hr, hrMax, hrStale: stale, steps: w.steps, activeKcal: w.activeKcal, distanceM: w.distanceM,
+          hr: w.hr, hrAt: w.hrAt, hrMax, hrStale: stale, steps: w.steps, activeKcal: w.activeKcal, distanceM: w.distanceM,
           inZoneSec: w.inZoneSec, zoneGoalSec: Number(env.ZONE_GOAL_SEC) || 1800,
         },
         spotify: sp ?? (lite ? null : { linked: false, playing: false, title: 'Spotify not linked', artist: '', positionMs: 0, durationMs: 0, queueCount: 0 }),

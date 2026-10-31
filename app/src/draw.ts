@@ -91,25 +91,53 @@ export function newTile(): HTMLCanvasElement {
   return c;
 }
 
-export function drawHrTile(c: HTMLCanvasElement, hr: number, hrMax: number) {
+/** Age of the HR sample as a short label. Coarse on purpose: the tile is only
+ *  redrawn when this string changes, so 10 s steps under a minute keep BLE
+ *  traffic low. */
+export function ageLabel(ageSec: number | null): string {
+  if (ageSec === null) return '--';
+  if (ageSec < 15) return 'now';
+  if (ageSec < 60) return `${Math.floor(ageSec / 10) * 10}s`;
+  if (ageSec < 3600) return `${Math.floor(ageSec / 60)}m`;
+  return `${Math.floor(ageSec / 3600)}h`;
+}
+
+/**
+ * HR tile. Fresh: big number, zone bar, small heart with the sample age under
+ * it. Stale (no sample for 5 min, or never): the number gives way to a large
+ * pulsing heart so a dead reading can never be mistaken for a live one; the
+ * last value and its age stay as a dim footnote.
+ */
+export function drawHrTile(c: HTMLCanvasElement, hr: number, hrMax: number, ageSec: number | null, stale: boolean, pulseOn: boolean) {
   const ctx = c.getContext('2d')!;
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, TILE_W, TILE_H);
   const z = zoneOf(hr, hrMax);
-  const hrText = String(Math.round(hr));
-  const w = measureDots(hrText, 14);
-  dots(ctx, hrText, Math.round((288 - w) / 2), 4, 14, 11);          // rows 4..102
+  const age = ageLabel(ageSec);
+  if (!stale) {
+    const hrText = String(Math.round(hr));
+    const w = measureDots(hrText, 14);
+    dots(ctx, hrText, Math.round((288 - w) / 2), 4, 14, 11);          // rows 4..102
+    icon(ctx, 'heart', 6, 6, 0.6, 1);                                 // top-left: the first digit never reaches here
+    label(ctx, age, 5, 26, 'left', 10, 0.45);
+  } else {
+    icon(ctx, 'heart', 116, 20, pulseOn ? 1 : 0.3, 8);                 // 56x48, centred
+    const foot = hr > 0 ? `${Math.round(hr)} · ${age}` : 'no signal';
+    label(ctx, foot, 144, 92, 'center', 12, 0.45);
+  }
   // Zone bar sits lower, with Z1..Z5 above each segment; the active zone is
   // taller, brightest, and carries a marker for where in the zone you are.
+  // Stale: every segment dim, no marker.
   for (let i = 0; i < 5; i++) {
-    const active = i + 1 === z.n;
+    const active = !stale && i + 1 === z.n;
     const x = 12 + i * 53;
-    label(ctx, 'Z' + (i + 1), x + 25, 116, 'center', 10, active ? 1 : 0.4);
-    ctx.fillStyle = lvl(active ? 1 : (i + 1 < z.n ? 0.45 : 0.18));
+    label(ctx, 'Z' + (i + 1), x + 25, 116, 'center', 10, active ? 1 : (stale ? 0.25 : 0.4));
+    ctx.fillStyle = lvl(active ? 1 : (!stale && i + 1 < z.n ? 0.45 : 0.18));
     ctx.fillRect(x, active ? 121 : 126, 50, active ? 16 : 8);
   }
-  ctx.fillStyle = lvl(1);
-  ctx.fillRect(12 + (z.n - 1) * 53 + Math.round(z.within * 48), 119, 2, 20);
-  icon(ctx, 'heart', 274, 6, 0.6, 1);
+  if (!stale) {
+    ctx.fillStyle = lvl(1);
+    ctx.fillRect(12 + (z.n - 1) * 53 + Math.round(z.within * 48), 119, 2, 20);
+  }
 }
 
 export function drawActivityTile(c: HTMLCanvasElement, s: HudState, blinkOn: boolean) {

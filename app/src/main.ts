@@ -4,8 +4,8 @@
 
 import { CreateStartUpPageContainer, OsEventTypeList, StartUpPageCreateResult, TextContainerProperty, type EvenHubEvent } from '@evenrealities/even_hub_sdk';
 import { getBridge } from './bridge';
-import { createMockModel, createRemoteModel, zoneOf, type Model } from './model';
-import { drawActivityTile, drawBlankTile, drawHrTile, drawSongStrip, newStrip, newTile, toPng } from './draw';
+import { createMockModel, createRemoteModel, hrAgeSec, hrStale, zoneOf, type Model } from './model';
+import { ageLabel, drawActivityTile, drawBlankTile, drawHrTile, drawSongStrip, newStrip, newTile, toPng } from './draw';
 import { DIM, IDS, MENU, NAMES, ambientLeft, batteryText, blankPageSpec, clockText, dateText, pageSpec, workoutLines } from './layout';
 import { createWriteQueue } from './queue';
 
@@ -118,7 +118,7 @@ async function main() {
   const actTile = newTile();
   const songStrip = newStrip();
   const lastText: string[] = ['', '', '', '', ''];
-  let lastHrDrawn = -1;
+  let lastHrKey = '';
   let lastMode: 'workout' | 'ambient' | '' = '';
   let tick = 0;
 
@@ -129,7 +129,7 @@ async function main() {
       console.log('[hud] wake:', reason);
       model.refresh?.();                       // one fresh pull so what you look at is current
       wakePage();
-      lastText.fill(''); lastHrDrawn = -1; lastMode = '';
+      lastText.fill(''); lastHrKey = ''; lastMode = '';
       render(true);
     }
   }
@@ -140,7 +140,7 @@ async function main() {
     asleep = true;
     console.log('[hud] sleep');
     q.push('page', () => bridge.rebuildPageContainer(blankPageSpec()));
-    lastText.fill(''); lastHrDrawn = -1;
+    lastText.fill(''); lastHrKey = '';
   }
   function wakePage() {
     q.push('page', () => bridge.rebuildPageContainer(pageSpec()));
@@ -176,7 +176,7 @@ async function main() {
       lastScroll = now;
       model.skipTrack(); render(true); return;
     }
-    if (t === OsEventTypeList.FOREGROUND_ENTER_EVENT) { lastText.fill(''); lastHrDrawn = -1; lastMode = ''; render(true); }
+    if (t === OsEventTypeList.FOREGROUND_ENTER_EVENT) { lastText.fill(''); lastHrKey = ''; lastMode = ''; render(true); }
   });
 
   function pushText(id: number, name: string, content: string, idx: number, textColor?: number) {
@@ -196,14 +196,17 @@ async function main() {
     const s = model.state;
     const mode = s.workout.active ? 'workout' : 'ambient';
     const modeChanged = mode !== lastMode;
-    if (modeChanged && lastMode) { awakeUntil = Date.now() + AWAKE_MS; if (asleep) { asleep = false; wakePage(); lastText.fill(''); lastHrDrawn = -1; force = true; } }
+    if (modeChanged && lastMode) { awakeUntil = Date.now() + AWAKE_MS; if (asleep) { asleep = false; wakePage(); lastText.fill(''); lastHrKey = ''; force = true; } }
     lastMode = mode;
 
     if (mode === 'workout') {
-      const hrRounded = Math.round(s.workout.hr);
-      if (hasTiles && (force || modeChanged || hrRounded !== lastHrDrawn)) {
-        lastHrDrawn = hrRounded;
-        drawHrTile(hrTile, s.workout.hr, s.workout.hrMax);
+      // The HR tile is redrawn only when something visible changes: the number,
+      // the coarse age label, or (stale only) the heart's pulse phase.
+      const age = hrAgeSec(s), stale = hrStale(s), pulseOn = tick % 2 === 0;
+      const hrKey = `${Math.round(s.workout.hr)}|${ageLabel(age)}|${stale ? (pulseOn ? 'on' : 'off') : 'live'}`;
+      if (hasTiles && (force || modeChanged || hrKey !== lastHrKey)) {
+        lastHrKey = hrKey;
+        drawHrTile(hrTile, s.workout.hr, s.workout.hrMax, age, stale, pulseOn);
         pushImage(IDS.hr, NAMES.hr, hrTile);
       }
       if (hasTiles) { drawActivityTile(actTile, s, tick % 2 === 0); pushImage(IDS.act, NAMES.act, actTile); }
