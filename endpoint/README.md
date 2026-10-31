@@ -22,20 +22,15 @@ Every route except `/health` and `/spotify/callback` needs
 On `/workout/start` the Worker turns shuffle on and starts
 `SPOTIFY_PLAYLIST_URI` on your phone. On `/workout/end` it pauses.
 
-## Deploy, first time
+## Deploy
+`../setup.sh` does all of this. By hand: copy `wrangler.example.toml` to
+`wrangler.toml` (git-ignored), fill the placeholders, then
 ```bash
-cd endpoint && npm install
-npx wrangler login
-npx wrangler kv namespace create HUD            # paste the id into wrangler.toml
-npx wrangler kv namespace create HUD --preview  # paste as preview_id
-openssl rand -hex 24                            # this is your HUD_TOKEN
-npx wrangler secret put HUD_TOKEN
+npm install && npx wrangler login
+npx wrangler kv namespace create HUD            # id goes into wrangler.toml
+npx wrangler secret put HUD_TOKEN               # openssl rand -hex 24
 npx wrangler secret put SPOTIFY_CLIENT_ID
 npx wrangler secret put SPOTIFY_CLIENT_SECRET
-```
-Edit `wrangler.toml`: set `SPOTIFY_PLAYLIST_URI` (right‑click the playlist in
-Spotify → Share → Copy Spotify URI), your lat/lon, HR max. Then:
-```bash
 npm run deploy
 ```
 Add `hud.bioconscious.tech` as a custom domain for the Worker in the

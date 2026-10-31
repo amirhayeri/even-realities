@@ -159,7 +159,7 @@ async function main() {
     if (menu === MENU.pause && !model.state.workout.paused) model.togglePause();
     else if (menu === MENU.resume && model.state.workout.paused) model.togglePause();
     else if (menu === MENU.skip) model.skipTrack();
-    else if (menu === MENU.exit) void bridge.shutDownPageContainer(0);
+    else if (menu === MENU.exit) void bridge.shutDownPageContainer(1);   // system exit dialog; silent exit is rejected in Even QA
     if (menu !== undefined) { render(true); return; }
 
     const t = e.sysEvent?.eventType ?? e.textEvent?.eventType ?? e.listEvent?.eventType;

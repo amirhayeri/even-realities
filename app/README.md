@@ -78,8 +78,8 @@ The endpoint is the next piece to build; it will aggregate:
 | rings.* | HealthKit via the same companion | planned |
 | battery | Even SDK device status | trivial |
 
-`app.json` whitelists `https://hud.bioconscious.tech`. Change it if the
-endpoint lives elsewhere; the Even app blocks every other origin.
+`app.json` is written by `../setup.sh` from `app.example.json` and whitelists
+your Worker URL; the Even app blocks every other origin.
 
 ## The gym routine
 

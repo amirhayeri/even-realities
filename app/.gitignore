@@ -3,3 +3,5 @@ dist/
 *.ehpk
 .env
 .env.*
+!.env.example
+app.json

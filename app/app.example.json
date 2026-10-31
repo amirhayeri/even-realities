@@ -1,5 +1,5 @@
 {
-  "package_id": "tech.bioconscious.evenhud",
+  "package_id": "com.example.biohud",
   "edition": "202601",
   "name": "Bio HUD",
   "version": "0.1.6",
@@ -11,8 +11,7 @@
       "name": "network",
       "desc": "Fetches your live workout, Spotify, glucose and weather summary from your own HUD endpoint.",
       "whitelist": [
-        "https://even-hud-endpoint.amir-e77.workers.dev",
-        "https://hud.bioconscious.tech"
+        "https://WORKER_URL"
       ]
     },
     {

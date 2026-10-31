@@ -8,7 +8,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.9"
-    DEVELOPMENT_TEAM: 9CT62KKWY2    # Bio Conscious Technologies
+    DEVELOPMENT_TEAM: "${DEVELOPMENT_TEAM}"   # exported by make-config.sh from ../app/.env; or set in Xcode
     CODE_SIGN_STYLE: Automatic
     MARKETING_VERSION: "0.1.0"
     CURRENT_PROJECT_VERSION: "1"
@@ -38,6 +38,6 @@ targets:
         UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: tech.bioconscious.biohud.watchos
+        PRODUCT_BUNDLE_IDENTIFIER: "${WATCH_BUNDLE_ID}"
         INFOPLIST_KEY_CFBundleDisplayName: Bio HUD
         TARGETED_DEVICE_FAMILY: "4"

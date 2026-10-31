@@ -2,20 +2,20 @@ name = "even-hud-endpoint"
 main = "src/index.ts"
 compatibility_date = "2024-10-01"
 
-# Route it at hud.bioconscious.tech once the DNS record exists in Cloudflare:
-# routes = [{ pattern = "hud.bioconscious.tech", custom_domain = true }]
+# Template. setup.sh copies this to wrangler.toml (git-ignored) and fills the values.
+# Optional custom domain: routes = [{ pattern = "hud.example.com", custom_domain = true }]
 
 [[kv_namespaces]]
 binding = "HUD"
-id = "c6cb3cb34e16428286de9b8a2ba49bf2"
+id = "KV_NAMESPACE_ID"
 
 [vars]
-BASE_URL = "https://even-hud-endpoint.amir-e77.workers.dev"
-SPOTIFY_PLAYLIST_URI = "spotify:playlist:3qSwBVv3oXiuSECFUTJ7c8"
-WEATHER_LAT = "49.2827"
-WEATHER_LON = "-123.1207"
-WEATHER_CITY = "Vancouver"
-HR_MAX = "180"
+BASE_URL = "https://WORKER_URL"
+SPOTIFY_PLAYLIST_URI = "spotify:playlist:PLAYLIST_ID"
+WEATHER_LAT = "LAT"
+WEATHER_LON = "LON"
+WEATHER_CITY = "CITY"
+HR_MAX = "HRMAX"
 # SPOTIFY_DEVICE_NAME = "Amir's iPhone"   # optional: pin playback to one device by its exact Spotify name
 ZONE_GOAL_SEC = "1800"
 # GLUCOSE_URL = "https://.../latest.json"   # optional, see README for the shape
