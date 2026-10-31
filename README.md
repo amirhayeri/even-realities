@@ -36,7 +36,8 @@ stays in git‑ignored files.
 | Folder | What |
 |---|---|
 | `app/` | Even Hub app (TypeScript, Even Hub SDK). `npm run dev` previews the lens in a browser with a mock session. `npm run release` ships a beta. |
-| `endpoint/` | Cloudflare Worker: workout state, health ingest, Spotify, weather, glucose. |
+| `morning/` | Morning HUD: a second Even Hub app. Four cards: glance, today, needs you, your day. Mail and calendar from Google, texts from an iPhone Shortcut. See `docs/morning.md`. |
+| `endpoint/` | Cloudflare Worker: workout state, health ingest, Spotify, weather, glucose, and the Morning briefing (`/morning`). |
 | `watch/` | watchOS app: owns the HKWorkoutSession, playlist picker, streams to the Worker. |
 | `docs/` | Even Hub reference compiled from the SDK, design canvas notes, the Even Terminal runbook. |
 

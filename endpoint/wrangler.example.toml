@@ -21,4 +21,10 @@ KV_WRITE_MIN_MS = "5000"     # min ms between KV writes from /health (free KV: 1
 ZONE_GOAL_SEC = "1800"
 # GLUCOSE_URL = "https://.../latest.json"   # optional, see README for the shape
 
-# Secrets (wrangler secret put ...): HUD_TOKEN, SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET
+# Morning HUD (docs/morning.md)
+TZ = "America/Toronto"                    # your zone, decides what "today" is
+VIP_EMAILS = ""                            # "sarah@acme.com, @investor.vc" — mail from these is a VIP card
+# MAIL_QUERY = "newer_than:1d -category:promotions -category:social"   # Gmail search for the Mail card
+
+# Secrets (wrangler secret put ...): HUD_TOKEN, SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET,
+# and for Morning HUD: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
