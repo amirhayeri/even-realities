@@ -42,23 +42,6 @@ interface Workout {
   writtenAt?: number;
 }
 
-interface _Unused {
-
-interface Workout {
-  active: boolean;
-  paused: boolean;
-  type: string;
-  startedAt: number;
-  pausedAt?: number;
-  pausedTotalMs: number;
-  hr: number;
-  hrAt: number;
-  steps: number;
-  activeKcal: number;
-  distanceM: number;
-  inZoneSec: number;
-  inZoneAt: number;
-}
 
 interface Rings { move: number; moveGoal: number; exercise: number; exerciseGoal: number; stand: number; standGoal: number }
 
