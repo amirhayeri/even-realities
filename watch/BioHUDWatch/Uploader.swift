@@ -7,6 +7,9 @@ final class Uploader {
     private var inFlight = false
     private var pending: [String: Any]?
     private(set) var lastStatus = ""
+    /// Cadence and zone info from the last /health reply; the Worker owns the rule (Z1 60 s, Z2 30 s, Z3+ 15 s).
+    private(set) var nextMs: Int = 15_000
+    private(set) var hrMax: Int = 185
 
     init() {
         let cfg = URLSessionConfiguration.default
@@ -61,10 +64,14 @@ final class Uploader {
         req.setValue("Bearer \(Config.token)", forHTTPHeaderField: "Authorization")
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try? JSONSerialization.data(withJSONObject: body)
-        session.dataTask(with: req) { [weak self] _, resp, err in
+        session.dataTask(with: req) { [weak self] data, resp, err in
             guard let self else { return }
             let code = (resp as? HTTPURLResponse)?.statusCode ?? 0
             self.lastStatus = err.map { "error: \($0.localizedDescription)" } ?? "\(path) \(code)"
+            if path == "/health", let data, let j = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                if let n = j["nextMs"] as? Int { self.nextMs = max(2_000, n) }
+                if let m = j["hrMax"] as? Int { self.hrMax = m }
+            }
             self.inFlight = false
             if let next = self.pending { self.pending = nil; self.post(path: "/health", body: next, force: false) }
         }.resume()

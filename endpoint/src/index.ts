@@ -87,6 +87,9 @@ async function getRings(env: Env): Promise<Rings> {
   return (await env.HUD.get(R_KEY, 'json') as Rings | null) ?? { move: 0, moveGoal: 600, exercise: 0, exerciseGoal: 30, stand: 0, standGoal: 12 };
 }
 
+/** Poll / post cadence by zone: Z1 60 s, Z2 30 s, Z3+ 15 s. The glasses and the Watch both follow it. */
+export function cadenceMs(zone: number): number { return zone <= 1 ? 60_000 : zone === 2 ? 30_000 : 15_000; }
+
 function zoneNum(hr: number, hrMax: number) {
   const p = hr / hrMax;
   return p < 0.6 ? 1 : p < 0.7 ? 2 : p < 0.8 ? 3 : p < 0.9 ? 4 : 5;
@@ -214,7 +217,8 @@ export default {
           for (const k of ringKeys) if (typeof (h as any)[k] === 'number') (r as any)[k] = (h as any)[k];
           await env.HUD.put(R_KEY, JSON.stringify(r));
         }
-        return json({ ok: true, applied: Object.keys(h) });
+        const zone = w.hr > 0 ? zoneNum(w.hr, hrMax) : 1;
+        return json({ ok: true, applied: Object.keys(h), zone, hrMax, nextMs: w.active ? cadenceMs(zone) : 60_000 });
       }
       if (path === '/pause') {
         const w = await getWorkout(env);

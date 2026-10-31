@@ -104,11 +104,13 @@ async function main() {
   let asleep = false;
   let lastZone = 0, candidateZone = 0, candidateSince = 0;
   // Poll cadence drives the Cloudflare bill: fast only when someone is looking.
+  // Z1 60 s, Z2 30 s, Z3+ 15 s during a workout; 60 s idle. Timer and song
+  // position advance locally between pulls, so the lens still ticks.
   function pollInterval(): number {
-    const w = model.state.workout.active;
-    if (w && !asleep) return 2_000;
-    if (w) return 10_000;
-    return 60_000;
+    const w = model.state.workout;
+    if (!w.active) return 60_000;
+    const z = w.hr > 0 ? zoneOf(w.hr, w.hrMax).n : 1;
+    return z <= 1 ? 60_000 : z === 2 ? 30_000 : 15_000;
   }
   /** Idle or asleep: ask the Worker for the cheap version (no Spotify, no weather). */
   function lite(): boolean { return asleep || !model.state.workout.active; }
@@ -125,6 +127,7 @@ async function main() {
     if (asleep) {
       asleep = false;
       console.log('[hud] wake:', reason);
+      model.refresh?.();                       // one fresh pull so what you look at is current
       wakePage();
       lastText.fill(''); lastHrDrawn = -1; lastMode = '';
       render(true);

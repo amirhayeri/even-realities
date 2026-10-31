@@ -42,6 +42,11 @@ final class WorkoutManager: NSObject, ObservableObject {
     private var builder: HKLiveWorkoutBuilder?
     private var timer: Timer?
     private var lastUpload = Date.distantPast
+    private var lastZone = 0
+    private func zone(_ hr: Double, max: Int) -> Int {
+        let p = hr / Double(max)
+        return p < 0.6 ? 1 : p < 0.7 ? 2 : p < 0.8 ? 3 : p < 0.9 ? 4 : 5
+    }
     private let uploader = Uploader()
 
     func requestAuthorization() async {
@@ -177,8 +182,12 @@ final class WorkoutManager: NSObject, ObservableObject {
                 guard let self, let b = self.builder else { return }
                 self.elapsed = b.elapsedTime
                 self.readStats()
-                // Every 2 s: half the requests, still feels live on the lens.
-                if Date().timeIntervalSince(self.lastUpload) >= 2 {
+                // Cadence comes from the Worker's last reply (Z1 60 s, Z2 30 s, Z3+ 15 s);
+                // a zone change posts immediately so the lens can wake for it.
+                let z = self.zone(self.heartRate, max: self.uploader.hrMax)
+                let zoneChanged = z != self.lastZone && self.heartRate > 0
+                if zoneChanged { self.lastZone = z }
+                if zoneChanged || Date().timeIntervalSince(self.lastUpload) >= Double(self.uploader.nextMs) / 1000 {
                     self.lastUpload = Date()
                     self.uploader.health(hr: self.heartRate > 0 ? self.heartRate : nil, steps: self.steps, kcal: self.activeKcal, distanceM: self.distanceM)
                     self.status = self.uploader.lastStatus.isEmpty ? "live" : self.uploader.lastStatus

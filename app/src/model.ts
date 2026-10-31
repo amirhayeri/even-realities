@@ -38,6 +38,8 @@ export interface Model {
   tick(dtMs: number): void;
   togglePause(): void;
   skipTrack(): void;
+  /** Pull from the endpoint on the next tick regardless of cadence. */
+  refresh?(): void;
 }
 
 export function zoneOf(hr: number, hrMax: number) {
@@ -195,6 +197,7 @@ export function createRemoteModel(base: string, token: string, onStatus?: (msg: 
     skipTrack() {
       fetch(`${root}/skip${q}`, { method: 'POST', headers }).catch(() => {});
     },
+    refresh() { lastFetch = 0; },
   };
   return model;
 }
