@@ -136,7 +136,7 @@ export function createMockModel(seed = Date.now()): Model {
 
 // ---------- Remote: poll your endpoint, fall back to mock between polls ----------
 
-export function createRemoteModel(base: string, token: string, onStatus?: (msg: string) => void, pollMs = 2000): Model {
+export function createRemoteModel(base: string, token: string, onStatus?: (msg: string) => void, pollMs: number | (() => number) = 2000): Model {
   const root = base.replace(/\/+$/, '');
   // Header and query both: the Even app's WebView has been seen to drop custom
   // headers on cross-origin requests, and the Worker accepts either.
@@ -161,7 +161,7 @@ export function createRemoteModel(base: string, token: string, onStatus?: (msg: 
       if (state.workout.active && !state.workout.paused) state.workout.elapsedSec += dtMs / 1000;
       if (state.spotify.playing) state.spotify.positionMs = Math.min(state.spotify.durationMs, state.spotify.positionMs + dtMs);
       const t = Date.now();
-      if (t - lastFetch < pollMs) return;
+      if (t - lastFetch < (typeof pollMs === 'function' ? pollMs() : pollMs)) return;
       lastFetch = t;
       fetch(`${root}/state${q}`, { cache: 'no-store', headers })
         .then(async r => {

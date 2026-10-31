@@ -157,7 +157,8 @@ final class WorkoutManager: NSObject, ObservableObject {
                 guard let self, let b = self.builder else { return }
                 self.elapsed = b.elapsedTime
                 self.readStats()
-                if Date().timeIntervalSince(self.lastUpload) >= 1 {
+                // Every 2 s: half the requests, still feels live on the lens.
+                if Date().timeIntervalSince(self.lastUpload) >= 2 {
                     self.lastUpload = Date()
                     self.uploader.health(hr: self.heartRate > 0 ? self.heartRate : nil, steps: self.steps, kcal: self.activeKcal, distanceM: self.distanceM)
                     self.status = self.uploader.lastStatus.isEmpty ? "live" : self.uploader.lastStatus

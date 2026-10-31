@@ -6,7 +6,7 @@ import { CreateStartUpPageContainer, OsEventTypeList, StartUpPageCreateResult, T
 import { getBridge } from './bridge';
 import { createMockModel, createRemoteModel, zoneOf, type Model } from './model';
 import { drawActivityTile, drawBlankTile, drawHrTile, drawSongStrip, newStrip, newTile, toPng } from './draw';
-import { DIM, IDS, MENU, NAMES, ambientLeft, batteryText, clockText, dateText, pageSpec, workoutLines } from './layout';
+import { DIM, IDS, MENU, NAMES, ambientLeft, batteryText, blankPageSpec, clockText, dateText, pageSpec, workoutLines } from './layout';
 import { createWriteQueue } from './queue';
 
 const TICK_MS = 1000;
@@ -40,7 +40,7 @@ async function main() {
 
   const endpoint = import.meta.env.VITE_HUD_ENDPOINT as string | undefined;
   const token = (import.meta.env.VITE_HUD_TOKEN as string | undefined) ?? '';
-  const model: Model = endpoint ? createRemoteModel(endpoint, token, status) : createMockModel();
+  const model: Model = endpoint ? createRemoteModel(endpoint, token, status, () => pollInterval()) : createMockModel();
   if (endpoint) status(`connecting to ${endpoint}…`);
   const hint = document.getElementById('hint');
   if (hint) hint.textContent = endpoint
@@ -102,7 +102,14 @@ async function main() {
   const q = createWriteQueue();
   let awakeUntil = Date.now() + AWAKE_MS;
   let asleep = false;
-  let lastZone = 0;
+  let lastZone = 0, candidateZone = 0, candidateSince = 0;
+  // Poll cadence drives the Cloudflare bill: fast only when someone is looking.
+  function pollInterval(): number {
+    const w = model.state.workout.active;
+    if (w && !asleep) return 2_000;
+    if (w) return 5_000;
+    return 15_000;
+  }
   const hrTile = newTile();
   const actTile = newTile();
   const songStrip = newStrip();
@@ -116,17 +123,22 @@ async function main() {
     if (asleep) {
       asleep = false;
       console.log('[hud] wake:', reason);
+      wakePage();
       lastText.fill(''); lastHrDrawn = -1; lastMode = '';
       render(true);
     }
   }
+  // Sleep replaces the whole page with one blank capture container in a single
+  // write, so everything disappears together instead of one element at a time.
+  // Wake rebuilds the full page in one write, then repaints the tiles.
   function sleep() {
     asleep = true;
     console.log('[hud] sleep');
-    drawBlankTile(hrTile); drawBlankTile(actTile); drawBlankTile(songStrip);
-    if (hasTiles) { pushImage(IDS.hr, NAMES.hr, hrTile); pushImage(IDS.act, NAMES.act, actTile); }
-    if (hasStrip) pushImage(IDS.song, NAMES.song, songStrip);
-    for (const [id, name, idx] of [[IDS.l1, NAMES.l1, 0], [IDS.l2, NAMES.l2, 1], [IDS.clock, NAMES.clock, 2], [IDS.date, NAMES.date, 3], [IDS.batt, NAMES.batt, 4]] as const) pushText(id, name, ' ', idx);
+    q.push('page', () => bridge.rebuildPageContainer(blankPageSpec()));
+    lastText.fill(''); lastHrDrawn = -1;
+  }
+  function wakePage() {
+    q.push('page', () => bridge.rebuildPageContainer(pageSpec()));
   }
   const lookUp = createLookUp(() => wake('look-up'));
   bridge.imuControl(true).catch(() => {});
@@ -179,7 +191,7 @@ async function main() {
     const s = model.state;
     const mode = s.workout.active ? 'workout' : 'ambient';
     const modeChanged = mode !== lastMode;
-    if (modeChanged && lastMode) { awakeUntil = Date.now() + AWAKE_MS; if (asleep) { asleep = false; lastText.fill(''); lastHrDrawn = -1; force = true; } }
+    if (modeChanged && lastMode) { awakeUntil = Date.now() + AWAKE_MS; if (asleep) { asleep = false; wakePage(); lastText.fill(''); lastHrDrawn = -1; force = true; } }
     lastMode = mode;
 
     if (mode === 'workout') {
@@ -222,12 +234,14 @@ async function main() {
     const s = model.state;
     const mode = s.workout.active ? 'workout' : 'ambient';
     if (mode !== lastMode) { render(); return; }    // state change: render() wakes the lens itself
-    // Zone change during a workout wakes the lens so you see it happen.
+    // Zone change during a workout wakes the lens, but only once the new zone
+    // has held for 5 s: a pulse bouncing across a boundary must not keep it lit.
     if (s.workout.active && s.workout.hr > 0) {
       const z = zoneOf(s.workout.hr, s.workout.hrMax).n;
-      if (lastZone !== 0 && z !== lastZone) wake(`zone ${lastZone}→${z}`);
-      lastZone = z;
-    } else lastZone = 0;
+      if (z !== candidateZone) { candidateZone = z; candidateSince = now; }
+      if (lastZone === 0) lastZone = z;
+      else if (z !== lastZone && now - candidateSince >= 5_000) { wake(`zone ${lastZone}→${z}`); lastZone = z; }
+    } else { lastZone = 0; candidateZone = 0; }
     if (!asleep && now > awakeUntil) { sleep(); return; }
     if (!asleep) render();
   }, TICK_MS);

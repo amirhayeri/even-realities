@@ -184,11 +184,13 @@ export default {
       if (path === '/health') {
         const h = parseHealth(body);
         const w = await getWorkout(env);
+        const before = JSON.stringify([w.hr, w.steps, w.activeKcal, w.distanceM, Math.floor(w.inZoneSec)]);
         if (typeof h.hr === 'number') { accrueZone(w, now, hrMax); w.hr = h.hr; w.hrAt = now; }
         if (typeof h.steps === 'number') w.steps = h.steps;
         if (typeof h.activeKcal === 'number') w.activeKcal = h.activeKcal;
         if (typeof h.distanceM === 'number') w.distanceM = h.distanceM;
-        await env.HUD.put(W_KEY, JSON.stringify(w));
+        const after = JSON.stringify([w.hr, w.steps, w.activeKcal, w.distanceM, Math.floor(w.inZoneSec)]);
+        if (after !== before || now - (w.hrAt || 0) > 30_000) await env.HUD.put(W_KEY, JSON.stringify(w));
         const ringKeys = ['move', 'moveGoal', 'exercise', 'exerciseGoal', 'stand', 'standGoal'] as const;
         if (ringKeys.some(k => typeof (h as any)[k] === 'number')) {
           const r = await getRings(env);

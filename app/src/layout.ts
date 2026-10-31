@@ -59,6 +59,18 @@ export function pageSpec() {
   };
 }
 
+/** One full-screen blank capture container: the lens goes dark in a single write. */
+export function blankPageSpec() {
+  return {
+    containerTotalNum: 1,
+    textObject: [new TextContainerProperty({
+      xPosition: 0, yPosition: 0, width: SCREEN_W, height: 288,
+      borderWidth: 0, borderColor: 0, borderRadius: 0, paddingLength: 0,
+      containerID: 99, containerName: 'sleep', content: ' ', textColor: 0, isEventCapture: 1,
+    })],
+  };
+}
+
 const SPACE_W = Math.max(1, getTextWidth(' '));
 
 /** `left` at the start, `right` at the end of one line, padded with spaces. */
