@@ -1,5 +1,15 @@
 # Pick-up list
 
+## State 2026-10-31
+Working end to end: Watch (playlist picker, type toggle, Start) → Worker → glasses
+(0.1.6, one-write sleep, adaptive polling) with Spotify on the phone only, a real
+rotated token, and lock-screen survival confirmed at the gym. Token rotation:
+`app/set-token.sh`, then `npm run release` and a Watch rebuild.
+Still open: look-up wake tuning from gym feedback, glucose feed, custom domain,
+delete the empty "Bio HUD Watch" record in App Store Connect, archive the old
+Mac build session. Even Hub CLI login expires often: `npx evenhub login` before a release.
+
+
 State as of 2026-10-28 evening: HUD renders Workout D on the glasses from the
 live endpoint. Spotify, weather and workout state are real. HR, steps, rings and
 glucose are waiting on a data source.
