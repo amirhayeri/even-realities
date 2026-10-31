@@ -46,6 +46,8 @@ interface Workout {
 interface Rings { move: number; moveGoal: number; exercise: number; exerciseGoal: number; stand: number; standGoal: number }
 
 const W_KEY = 'workout';
+/** Freshest workout seen by this isolate, served between throttled KV writes (best effort). */
+let memWorkout: Workout | null = null;
 const R_KEY = 'rings';
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -76,7 +78,8 @@ const MAX_WORKOUT_MS = 6 * 60 * 60 * 1000;
 
 /** A session nobody ended (phone died, automation missed) expires after six hours. */
 async function getWorkout(env: Env): Promise<Workout> {
-  const w = (await env.HUD.get(W_KEY, 'json') as Workout | null) ?? defaultWorkout();
+  const kv = (await env.HUD.get(W_KEY, 'json') as Workout | null) ?? defaultWorkout();
+  const w = memWorkout && memWorkout.hrAt > (kv.hrAt || 0) && memWorkout.startedAt === kv.startedAt ? memWorkout : kv;
   if (w.active && Date.now() - w.startedAt > MAX_WORKOUT_MS) { w.active = false; w.paused = false; }
   return w;
 }
@@ -196,7 +199,8 @@ export default {
         if (typeof h.activeKcal === 'number') w.activeKcal = h.activeKcal;
         if (typeof h.distanceM === 'number') w.distanceM = h.distanceM;
         const after = JSON.stringify([w.hr, w.steps, w.activeKcal, w.distanceM, Math.floor(w.inZoneSec)]);
-        const minGap = Number(env.KV_WRITE_MIN_MS) || 0;
+        const minGap = env.KV_WRITE_MIN_MS !== undefined ? Number(env.KV_WRITE_MIN_MS) : 5000;
+        memWorkout = w;
         const zoneChanged = zoneNum(w.hr, hrMax) !== zoneNum(JSON.parse(before)[0] || 0, hrMax);
         const due = now - (w.writtenAt || 0) >= minGap;
         if ((after !== before && (due || zoneChanged)) || now - (w.writtenAt || 0) > 30_000) {
@@ -245,7 +249,14 @@ export default {
 
     // ---- Read: the shape app/src/model.ts expects ----
     if (path === '/state') {
-      const [w, rings, sp, wx, gl] = await Promise.all([getWorkout(env), getRings(env), spotify.nowPlaying(env).catch(() => null), weather(env).catch(() => null), glucose(env)]);
+      // lite=1: the lens is idle or asleep; skip the Spotify and weather lookups.
+      const lite = url.searchParams.get('lite') === '1';
+      const [w, rings, sp, wx, gl] = await Promise.all([
+        getWorkout(env), getRings(env),
+        lite ? Promise.resolve(null) : spotify.nowPlaying(env).catch(() => null),
+        lite ? Promise.resolve(null) : weather(env).catch(() => null),
+        glucose(env),
+      ]);
       const pausedMs = w.pausedTotalMs + (w.paused && w.pausedAt ? now - w.pausedAt : 0);
       const elapsedSec = w.active ? Math.max(0, (now - w.startedAt - pausedMs) / 1000) : 0;
       const stale = w.hrAt ? now - w.hrAt > 120_000 : true;
@@ -256,7 +267,7 @@ export default {
           hr: w.hr, hrMax, hrStale: stale, steps: w.steps, activeKcal: w.activeKcal, distanceM: w.distanceM,
           inZoneSec: w.inZoneSec, zoneGoalSec: Number(env.ZONE_GOAL_SEC) || 1800,
         },
-        spotify: sp ?? { linked: false, playing: false, title: 'Spotify not linked', artist: '', positionMs: 0, durationMs: 0, queueCount: 0 },
+        spotify: sp ?? (lite ? null : { linked: false, playing: false, title: 'Spotify not linked', artist: '', positionMs: 0, durationMs: 0, queueCount: 0 }),
         rings,
         weather: wx,
         glucose: gl,

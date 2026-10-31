@@ -40,7 +40,7 @@ async function main() {
 
   const endpoint = import.meta.env.VITE_HUD_ENDPOINT as string | undefined;
   const token = (import.meta.env.VITE_HUD_TOKEN as string | undefined) ?? '';
-  const model: Model = endpoint ? createRemoteModel(endpoint, token, status, () => pollInterval()) : createMockModel();
+  const model: Model = endpoint ? createRemoteModel(endpoint, token, status, () => pollInterval(), () => lite()) : createMockModel();
   if (endpoint) status(`connecting to ${endpoint}…`);
   const hint = document.getElementById('hint');
   if (hint) hint.textContent = endpoint
@@ -107,9 +107,11 @@ async function main() {
   function pollInterval(): number {
     const w = model.state.workout.active;
     if (w && !asleep) return 2_000;
-    if (w) return 5_000;
-    return 15_000;
+    if (w) return 10_000;
+    return 60_000;
   }
+  /** Idle or asleep: ask the Worker for the cheap version (no Spotify, no weather). */
+  function lite(): boolean { return asleep || !model.state.workout.active; }
   const hrTile = newTile();
   const actTile = newTile();
   const songStrip = newStrip();
