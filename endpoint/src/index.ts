@@ -20,7 +20,29 @@ export interface Env extends spotify.SpotifyEnv {
   HR_MAX: string;
   ZONE_GOAL_SEC: string;
   GLUCOSE_URL?: string;
+  /** Minimum ms between KV writes from /health. Free KV allows 1,000 writes/day; 10000 fits ~2.5 h of workout. */
+  KV_WRITE_MIN_MS?: string;
 }
+
+interface Workout {
+  active: boolean;
+  paused: boolean;
+  type: string;
+  startedAt: number;
+  pausedAt?: number;
+  pausedTotalMs: number;
+  hr: number;
+  hrAt: number;
+  steps: number;
+  activeKcal: number;
+  distanceM: number;
+  inZoneSec: number;
+  inZoneAt: number;
+  /** When the workout record was last written to KV. */
+  writtenAt?: number;
+}
+
+interface _Unused {
 
 interface Workout {
   active: boolean;
@@ -191,7 +213,14 @@ export default {
         if (typeof h.activeKcal === 'number') w.activeKcal = h.activeKcal;
         if (typeof h.distanceM === 'number') w.distanceM = h.distanceM;
         const after = JSON.stringify([w.hr, w.steps, w.activeKcal, w.distanceM, Math.floor(w.inZoneSec)]);
-        if (after !== before || now - (w.hrAt || 0) > 30_000) await env.HUD.put(W_KEY, JSON.stringify(w));
+        const minGap = Number(env.KV_WRITE_MIN_MS) || 0;
+        const zoneChanged = zoneNum(w.hr, hrMax) !== zoneNum(JSON.parse(before)[0] || 0, hrMax);
+        const due = now - (w.writtenAt || 0) >= minGap;
+        if ((after !== before && (due || zoneChanged)) || now - (w.writtenAt || 0) > 30_000) {
+          w.writtenAt = now;
+          try { await env.HUD.put(W_KEY, JSON.stringify(w)); }
+          catch (e: any) { return json({ ok: false, error: 'kv write failed (quota?)', detail: String(e?.message ?? e) }, 503); }
+        }
         const ringKeys = ['move', 'moveGoal', 'exercise', 'exerciseGoal', 'stand', 'standGoal'] as const;
         if (ringKeys.some(k => typeof (h as any)[k] === 'number')) {
           const r = await getRings(env);
