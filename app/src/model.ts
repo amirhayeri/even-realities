@@ -194,6 +194,10 @@ export function createRemoteModel(base: string, token: string, onStatus?: (msg: 
           healthy = true; lastRemoteAt = Date.now();
           const { now: _n, ...rest } = remote as any;
           for (const k of Object.keys(rest)) if (rest[k] === null || rest[k] === undefined) delete rest[k];   // keep local values the endpoint doesn't know (lite polls omit spotify/weather)
+          // A Worker that predates hrAt sends none: stamp the sample locally
+          // when the value changes, so the age label still means something.
+          const rw = rest.workout;
+          if (rw && rw.hr > 0 && !(rw.hrAt > 0)) rw.hrAt = rw.hr !== state.workout.hr || !(state.workout.hrAt > 0) ? Date.now() : state.workout.hrAt;
           Object.assign(state, rest, { now: Date.now() });
         })
         .catch(err => {
