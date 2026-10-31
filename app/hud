@@ -14,6 +14,7 @@ cd "$(dirname "$0")"
 EP=$(grep '^VITE_HUD_ENDPOINT=' .env | cut -d= -f2- | tr -d '[:space:]"'"'"'')
 TK=$(grep '^VITE_HUD_TOKEN=' .env | cut -d= -f2- | tr -d '[:space:]"'"'"'')
 [ -n "$EP" ] && [ -n "$TK" ] || { echo ".env is missing VITE_HUD_ENDPOINT or VITE_HUD_TOKEN"; exit 1; }
+case "$TK" in PASTE*|YOUR*|change-me*) echo "Token in .env is a placeholder. Run ./set-token.sh first."; exit 1;; esac
 H="Authorization: Bearer $TK"
 case "${1:-state}" in
   state)  curl -s -H "$H" "$EP/state" | python3 -m json.tool ;;
@@ -22,7 +23,10 @@ case "${1:-state}" in
   pause)  curl -s -X POST -H "$H" "$EP/pause"; echo ;;
   skip)   curl -s -X POST -H "$H" "$EP/skip"; echo ;;
   hr)     curl -s -X POST -H "$H" -H 'Content-Type: application/json' -d "{\"hr\":${2:-140}}" "$EP/health"; echo ;;
-  playlists) curl -s -H "$H" "$EP/playlists" | python3 -c 'import json,sys; d=json.load(sys.stdin).get("playlists",[]); print(len(d),"playlists"); [print(" -",p["name"],f"({p[\"tracks\"]} tracks)") for p in d[:50]]' ;;
+  playlists) curl -s -H "$H" "$EP/playlists" | python3 -c 'import json,sys
+d=json.load(sys.stdin).get("playlists",[])
+print(len(d),"playlists")
+for p in d[:50]: print(" -",p["name"],"(" + str(p["tracks"]) + " tracks)")' ;;
   relink) echo "Open this in a browser and approve:"; echo "$EP/spotify/login?token=$TK" ;;
   token)  echo "$TK" ;;
   *)      sed -n '2,9p' "$0" ;;
