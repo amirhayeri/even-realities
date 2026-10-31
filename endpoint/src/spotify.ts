@@ -125,9 +125,14 @@ export async function startGymPlaylist(env: SpotifyEnv, playlistUri?: string): P
   if (!devices) return 'spotify not linked';
   const dj = await devices.json() as any;
   const list: any[] = dj.devices ?? [];
-  // Phone first, always: at the gym the Mac may still be the "active" device from the desk.
-  const active = list.find(d => d.type === 'Smartphone') ?? list.find(d => d.is_active) ?? list[0];
-  if (!active) return 'no spotify device online; open Spotify on the phone once';
+  // Phone only. Never fall back to whatever else is online: that once started
+  // the gym playlist on every Alexa in the house. SPOTIFY_DEVICE_NAME can pin a
+  // specific device instead (exact name as Spotify shows it).
+  const wanted = (env as any).SPOTIFY_DEVICE_NAME as string | undefined;
+  const active = wanted
+    ? list.find(d => d.name === wanted)
+    : list.find(d => d.type === 'Smartphone');
+  if (!active) return `phone not available in Spotify (online: ${list.map(d => d.name).join(', ') || 'none'}); open Spotify on the phone once`;
   const dev = `device_id=${active.id}`;
   await api(env, 'PUT', `/me/player/shuffle?state=true&${dev}`);
   const play = await api(env, 'PUT', `/me/player/play?${dev}`, { context_uri: uri });
