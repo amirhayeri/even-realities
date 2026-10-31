@@ -15,8 +15,27 @@ final class Uploader {
         session = URLSession(configuration: cfg)
     }
 
-    func workoutStart(type: String, startedAt: Date) {
-        post(path: "/workout/start", body: ["type": type, "startedAt": Int(startedAt.timeIntervalSince1970 * 1000)], force: true)
+    func workoutStart(type: String, startedAt: Date, playlist: String?) {
+        var body: [String: Any] = ["type": type, "startedAt": Int(startedAt.timeIntervalSince1970 * 1000)]
+        if let playlist { body["playlist"] = playlist }
+        post(path: "/workout/start", body: body, force: true)
+    }
+
+    struct Playlist: Codable, Identifiable, Hashable { let id: String; let name: String; let uri: String; let tracks: Int }
+
+    /// Your Spotify playlists via the Worker. Cached in UserDefaults so the picker works offline.
+    func fetchPlaylists() async -> [Playlist] {
+        let cacheKey = "playlists.v1"
+        var req = URLRequest(url: URL(string: Config.endpoint + "/playlists?token=" + Config.token)!)
+        req.setValue("Bearer \(Config.token)", forHTTPHeaderField: "Authorization")
+        if let (data, resp) = try? await session.data(for: req), (resp as? HTTPURLResponse)?.statusCode == 200,
+           let decoded = try? JSONDecoder().decode([String: [Playlist]].self, from: data), let list = decoded["playlists"], !list.isEmpty {
+            UserDefaults.standard.set(data, forKey: cacheKey)
+            return list
+        }
+        if let data = UserDefaults.standard.data(forKey: cacheKey),
+           let decoded = try? JSONDecoder().decode([String: [Playlist]].self, from: data), let list = decoded["playlists"] { return list }
+        return []
     }
 
     func workoutEnd() {

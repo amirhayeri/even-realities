@@ -8,21 +8,33 @@ struct ContentView: View {
     }
 
     private var idle: some View {
-        VStack(spacing: 10) {
-            Picker("Workout", selection: $w.kind) {
-                ForEach(WorkoutManager.Kind.allCases) { Text($0.rawValue).tag($0) }
+        VStack(spacing: 6) {
+            if w.playlists.isEmpty {
+                Text("No playlists yet").font(.footnote).foregroundStyle(.secondary).frame(height: 70)
+            } else {
+                Picker("Playlist", selection: Binding(get: { w.playlist }, set: { w.choose($0) })) {
+                    ForEach(w.playlists) { p in Text(p.name).tag(Optional(p)) }
+                }
+                .pickerStyle(.wheel)
+                .frame(height: 70)
             }
-            .pickerStyle(.wheel)
-            .frame(height: 70)
-            Button { w.start() } label: {
-                Label("Start", systemImage: "play.fill").frame(maxWidth: .infinity)
+            HStack {
+                Button { w.nextKind() } label: {
+                    Label(w.kind.rawValue, systemImage: "figure.run").font(.footnote)
+                }
+                .buttonStyle(.bordered)
+                .tint(.gray)
+                Button { w.start() } label: {
+                    Label("Start", systemImage: "play.fill").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .tint(.green)
+                .disabled(!w.authorized)
             }
-            .buttonStyle(.borderedProminent)
-            .tint(.green)
-            .disabled(!w.authorized)
-            Text(w.status).font(.footnote).foregroundStyle(.secondary).lineLimit(2)
+            Text(w.status).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(2)
         }
         .padding(.horizontal)
+        .task { if w.playlists.isEmpty { await w.loadPlaylists() } }
     }
 
     private var live: some View {

@@ -170,7 +170,8 @@ export default {
         const w = defaultWorkout();
         w.active = true; w.type = String(body.type ?? 'workout'); w.startedAt = Number(body.startedAt) || now;
         await env.HUD.put(W_KEY, JSON.stringify(w));
-        const music = await spotify.startGymPlaylist(env).catch(e => `spotify error: ${e.message}`);
+        const playlist = typeof body.playlist === 'string' && body.playlist.startsWith('spotify:') ? body.playlist : undefined;
+        const music = await spotify.startGymPlaylist(env, playlist).catch(e => `spotify error: ${e.message}`);
         return json({ ok: true, music });
       }
       if (path === '/workout/end') {
@@ -214,6 +215,20 @@ export default {
         return json({ ok: true });
       }
       return json({ error: 'not found' }, 404);
+    }
+
+    // ---- Read: playlists for the Watch picker (cached 10 min) ----
+    if (path === '/playlists') {
+      const cache = caches.default;
+      const key = new Request(`${url.origin}/__playlists`);
+      let r = await cache.match(key);
+      if (!r) {
+        const list = await spotify.playlists(env).catch(() => []);
+        r = json({ playlists: list });
+        r.headers.set('Cache-Control', 'max-age=600');
+        if (list.length) ctx.waitUntil(cache.put(key, r.clone()));
+      }
+      return r;
     }
 
     // ---- Read: the shape app/src/model.ts expects ----

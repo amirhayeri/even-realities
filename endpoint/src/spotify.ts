@@ -107,9 +107,20 @@ export async function nowPlaying(env: SpotifyEnv): Promise<SpotifyState> {
   return state;
 }
 
-/** Workout start: shuffle on, play the gym playlist on the phone. Transfers playback if no device is active. */
-export async function startGymPlaylist(env: SpotifyEnv): Promise<string> {
-  if (!env.SPOTIFY_PLAYLIST_URI || env.SPOTIFY_PLAYLIST_URI.includes('REPLACE')) return 'no playlist configured';
+export interface PlaylistInfo { id: string; name: string; uri: string; tracks: number }
+
+/** The user's playlists, newest first, for the Watch picker. */
+export async function playlists(env: SpotifyEnv): Promise<PlaylistInfo[]> {
+  const r = await api(env, 'GET', '/me/playlists?limit=50');
+  if (!r || !r.ok) return [];
+  const j = await r.json() as any;
+  return (j.items ?? []).map((p: any) => ({ id: p.id, name: p.name, uri: p.uri, tracks: p.tracks?.total ?? 0 }));
+}
+
+/** Workout start: shuffle on, play the chosen playlist (or the configured default) on the phone. */
+export async function startGymPlaylist(env: SpotifyEnv, playlistUri?: string): Promise<string> {
+  const uri = playlistUri || env.SPOTIFY_PLAYLIST_URI;
+  if (!uri || uri.includes('REPLACE')) return 'no playlist configured';
   let devices = await api(env, 'GET', '/me/player/devices');
   if (!devices) return 'spotify not linked';
   const dj = await devices.json() as any;
@@ -119,7 +130,7 @@ export async function startGymPlaylist(env: SpotifyEnv): Promise<string> {
   if (!active) return 'no spotify device online; open Spotify on the phone once';
   const dev = `device_id=${active.id}`;
   await api(env, 'PUT', `/me/player/shuffle?state=true&${dev}`);
-  const play = await api(env, 'PUT', `/me/player/play?${dev}`, { context_uri: env.SPOTIFY_PLAYLIST_URI });
+  const play = await api(env, 'PUT', `/me/player/play?${dev}`, { context_uri: uri });
   return play && (play.ok || play.status === 204) ? 'playing' : `play failed ${play?.status}`;
 }
 

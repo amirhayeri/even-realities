@@ -24,7 +24,9 @@ final class WorkoutManager: NSObject, ObservableObject {
         var endpointType: String { rawValue.lowercased() }
     }
 
-    @Published var kind: Kind = .run
+    @Published var kind: Kind = .strength
+    @Published var playlists: [Uploader.Playlist] = []
+    @Published var playlist: Uploader.Playlist?
     @Published var running = false
     @Published var paused = false
     @Published var heartRate: Double = 0
@@ -62,6 +64,24 @@ final class WorkoutManager: NSObject, ObservableObject {
             status = "auth failed: \(error.localizedDescription)"
         }
         recoverStaleSession()
+        await loadPlaylists()
+    }
+
+    func loadPlaylists() async {
+        let list = await uploader.fetchPlaylists()
+        playlists = list
+        let remembered = UserDefaults.standard.string(forKey: "playlist.uri")
+        playlist = list.first { $0.uri == remembered } ?? list.first
+    }
+
+    func choose(_ p: Uploader.Playlist?) {
+        playlist = p
+        UserDefaults.standard.set(p?.uri, forKey: "playlist.uri")
+    }
+
+    func nextKind() {
+        let all = Kind.allCases
+        kind = all[(all.firstIndex(of: kind)! + 1) % all.count]
     }
 
     /// watchOS keeps a workout session alive after the app quits. A new session
@@ -115,7 +135,7 @@ final class WorkoutManager: NSObject, ObservableObject {
             b.beginCollection(withStart: now) { [weak self] ok, err in
                 Task { @MainActor in
                     guard let self else { return }
-                    if ok { self.running = true; self.paused = false; self.status = "live"; self.uploader.workoutStart(type: self.kind.endpointType, startedAt: now); self.startTimer() }
+                    if ok { self.running = true; self.paused = false; self.status = "live"; self.uploader.workoutStart(type: self.kind.endpointType, startedAt: now, playlist: self.playlist?.uri); self.startTimer() }
                     else {
                         let ns = err as NSError?
                         self.status = "start failed [\(ns?.code ?? 0)]: \(ns?.localizedDescription ?? "no error given")"
