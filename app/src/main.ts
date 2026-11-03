@@ -5,7 +5,7 @@
 import { CreateStartUpPageContainer, OsEventTypeList, StartUpPageCreateResult, TextContainerProperty, type EvenHubEvent } from '@evenrealities/even_hub_sdk';
 import { getBridge } from './bridge';
 import { createMockModel, createRemoteModel, hrAgeSec, hrStale, zoneOf, type Model } from './model';
-import { ageLabel, drawActivityTile, drawBlankTile, drawHello, drawHrTile, drawSongStrip, newStrip, newTile, splitTiles, toPng } from './draw';
+import { ageLabel, drawActivityTile, drawBlankTile, drawDimHrTile, drawDimTimerTile, drawHello, drawHrTile, drawSongStrip, newStrip, newTile, splitTiles, toPng } from './draw';
 import { DIM, HELLO_IDS, IDS, MENU, NAMES, ambientLeft, batteryText, blankPageSpec, clockText, dateText, helloPageSpec, pageSpec, workoutLines } from './layout';
 import { createWriteQueue } from './queue';
 
@@ -148,8 +148,9 @@ async function main() {
       asleep = false;
       console.log('[hud] wake:', reason);
       model.refresh?.();                       // one fresh pull so what you look at is current
-      if (reason === 'look-up') { void showHello(); return; }
-      wakePage();
+      if (reason === 'look-up') { dim = false; void showHello(); return; }
+      if (!dim) wakePage();
+      dim = false;
       lastText.fill(''); lastHrKey = ''; lastMode = '';
       render(true);
     }
@@ -177,11 +178,29 @@ async function main() {
   // Sleep replaces the whole page with one blank capture container in a single
   // write, so everything disappears together instead of one element at a time.
   // Wake rebuilds the full page in one write, then repaints the tiles.
+  // During a workout the resting lens keeps a faint zone bar and the timer in
+  // minutes (one image a minute). Outside a workout it goes fully dark.
+  let dim = false, lastDimKey = '';
   function sleep() {
     asleep = true;
     console.log('[hud] sleep');
+    if (model.state.workout.active && hasTiles) { dim = true; lastDimKey = ''; renderDim(); return; }
+    dim = false;
     q.push('page', () => bridge.rebuildPageContainer(blankPageSpec()));
     lastText.fill(''); lastHrKey = '';
+  }
+  function renderDim() {
+    const s = model.state, w = s.workout;
+    if (!w.active) { dim = false; q.push('page', () => bridge.rebuildPageContainer(blankPageSpec())); lastText.fill(''); lastHrKey = ''; return; }
+    const z = w.hr > 0 ? zoneOf(w.hr, w.hrMax).n : 0;
+    const key = `${z}|${Math.floor(w.elapsedSec / 60)}|${w.paused}`;
+    if (key === lastDimKey) return;
+    lastDimKey = key;
+    drawDimHrTile(hrTile, w.hr, w.hrMax); pushImage(IDS.hr, NAMES.hr, hrTile);
+    drawDimTimerTile(actTile, w.elapsedSec, w.paused); pushImage(IDS.act, NAMES.act, actTile);
+    if (hasStrip) { drawBlankTile(songStrip); pushImage(IDS.song, NAMES.song, songStrip); }
+    for (const [id, name, idx] of [[IDS.l1, NAMES.l1, 0], [IDS.l2, NAMES.l2, 1], [IDS.clock, NAMES.clock, 2], [IDS.date, NAMES.date, 3], [IDS.batt, NAMES.batt, 4]] as const) pushText(id, name, ' ', idx);
+    lastHrKey = ''; lastText.fill(' ');
   }
   function wakePage() {
     q.push('page', () => bridge.rebuildPageContainer(pageSpec()));
@@ -300,7 +319,8 @@ async function main() {
       else if (z !== lastZone && now - candidateSince >= 5_000) { wake(`zone ${lastZone}→${z}`); lastZone = z; }
     } else { lastZone = 0; candidateZone = 0; }
     if (!asleep && now > awakeUntil) { sleep(); return; }
-    if (!asleep) render();
+    if (asleep) { if (dim) renderDim(); return; }
+    render();
   }, TICK_MS);
 }
 

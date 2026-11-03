@@ -140,6 +140,32 @@ export function drawHrTile(c: HTMLCanvasElement, hr: number, hrMax: number, ageS
   }
 }
 
+/** Dim resting view of the HR tile: only the zone bar, faint. */
+export function drawDimHrTile(c: HTMLCanvasElement, hr: number, hrMax: number) {
+  const ctx = c.getContext('2d')!;
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, TILE_W, TILE_H);
+  const z = hr > 0 ? zoneOf(hr, hrMax) : null;
+  for (let i = 0; i < 5; i++) {
+    const active = z !== null && i + 1 === z.n;
+    const x = 12 + i * 53;
+    label(ctx, 'Z' + (i + 1), x + 25, 116, 'center', 10, active ? 0.45 : 0.15);
+    ctx.fillStyle = lvl(active ? 0.45 : (z && i + 1 < z.n ? 0.18 : 0.08));
+    ctx.fillRect(x, active ? 121 : 126, 50, active ? 16 : 8);
+  }
+  if (z) { ctx.fillStyle = lvl(0.45); ctx.fillRect(12 + (z.n - 1) * 53 + Math.round(z.within * 48), 119, 2, 20); }
+}
+
+/** Dim resting view of the activity tile: the timer in minutes, faint. */
+export function drawDimTimerTile(c: HTMLCanvasElement, elapsedSec: number, paused: boolean) {
+  const ctx = c.getContext('2d')!;
+  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, TILE_W, TILE_H);
+  const e = Math.floor(elapsedSec), h = Math.floor(e / 3600), m = Math.floor((e % 3600) / 60);
+  const t = h > 0 ? `${h}:${String(m).padStart(2, '0')}` : `${m}`;
+  icon(ctx, paused ? 'pause' : 'clock', 12, 16, 0.25, 1);
+  dots(ctx, t, 30, 12, 7, 6, 0.3);
+  if (h === 0) label(ctx, 'min', 30 + measureDots(t, 7) + 10, 56, 'left', 11, 0.25);
+}
+
 export function drawActivityTile(c: HTMLCanvasElement, s: HudState, blinkOn: boolean) {
   const ctx = c.getContext('2d')!;
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, TILE_W, TILE_H);
