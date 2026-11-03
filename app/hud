@@ -3,7 +3,8 @@
 #   ./hud state          show what the glasses see
 #   ./hud start [type]   start a workout (default: run), Spotify shuffles the gym playlist
 #   ./hud end            end the workout, Spotify pauses
-#   ./hud pause | skip   same as the glasses gestures
+#   ./hud pause | skip | prev | play   timer pause/resume, next, previous, play/pause
+#   ./hud reset          restart the elapsed count (the Watch session is untouched)
 #   ./hud hr 142         post a heart-rate sample (for testing without a watch)
 #   ./hud playlists      list the playlists the Watch will offer
 #   ./hud relink         print the Spotify re-link URL (needed after a scope change)
@@ -21,7 +22,10 @@ case "${1:-state}" in
   start)  curl -s -X POST -H "$H" -H 'Content-Type: application/json' -d "{\"type\":\"${2:-run}\"}" "$EP/workout/start"; echo ;;
   end)    curl -s -X POST -H "$H" "$EP/workout/end"; echo ;;
   pause)  curl -s -X POST -H "$H" "$EP/pause"; echo ;;
-  skip)   curl -s -X POST -H "$H" "$EP/skip"; echo ;;
+  skip)   curl -s -X POST -H "$H" "$EP/music/next"; echo ;;
+  prev)   curl -s -X POST -H "$H" "$EP/music/prev"; echo ;;
+  play)   curl -s -X POST -H "$H" "$EP/music/toggle"; echo ;;
+  reset)  curl -s -X POST -H "$H" "$EP/workout/reset"; echo ;;
   hr)     curl -s -X POST -H "$H" -H 'Content-Type: application/json' -d "{\"hr\":${2:-140}}" "$EP/health"; echo ;;
   playlists) curl -s -H "$H" "$EP/playlists" | python3 -c 'import json,sys
 d=json.load(sys.stdin).get("playlists",[])
@@ -29,5 +33,5 @@ print(len(d),"playlists")
 for p in d[:50]: print(" -",p["name"],"(" + str(p["tracks"]) + " tracks)")' ;;
   relink) echo "Open this in a browser and approve:"; echo "$EP/spotify/login?token=$TK" ;;
   token)  echo "$TK" ;;
-  *)      sed -n '2,9p' "$0" ;;
+  *)      sed -n '2,11p' "$0" ;;
 esac
