@@ -5,12 +5,23 @@
 import { CreateStartUpPageContainer, OsEventTypeList, StartUpPageCreateResult, TextContainerProperty, type EvenHubEvent } from '@evenrealities/even_hub_sdk';
 import { getBridge } from './bridge';
 import { createMockModel, createRemoteModel, hrAgeSec, hrStale, zoneOf, type Model } from './model';
-import { ageLabel, drawActivityTile, drawBlankTile, drawHrTile, drawSongStrip, newStrip, newTile, toPng } from './draw';
-import { DIM, IDS, MENU, NAMES, ambientLeft, batteryText, blankPageSpec, clockText, dateText, pageSpec, workoutLines } from './layout';
+import { ageLabel, drawActivityTile, drawBlankTile, drawHello, drawHrTile, drawSongStrip, newStrip, newTile, splitTiles, toPng } from './draw';
+import { DIM, HELLO_IDS, IDS, MENU, NAMES, ambientLeft, batteryText, blankPageSpec, clockText, dateText, helloPageSpec, pageSpec, workoutLines } from './layout';
 import { createWriteQueue } from './queue';
 
 const TICK_MS = 1000;
 const AWAKE_MS = 15_000;          // lens goes dark this long after the last wake
+const HELLO_MS = 1600;            // the green hello flash on look-up
+
+/** Input comes from the ring only. Temple taps and swipes are dropped: hair
+ *  and headbands trigger them all day at the gym. Events without a source
+ *  (menu clicks, foreground notices) pass. */
+function fromTemple(e: EvenHubEvent): boolean {
+  const src: any = (e.sysEvent as any)?.eventSource ?? (e.textEvent as any)?.eventSource;
+  if (src === undefined || src === null) return false;
+  if (typeof src === 'number') return src === 1 || src === 3;
+  return /GLASSES/i.test(String(src));
+}
 
 /** Look-up detector on raw IMU samples. Unit-agnostic: fires when the vector
  *  swings away from a slow rolling baseline, then settles. */
@@ -44,8 +55,8 @@ async function main() {
   if (endpoint) status(`connecting to ${endpoint}…`);
   const hint = document.getElementById('hint');
   if (hint) hint.textContent = endpoint
-    ? 'Browser preview on live data. Click = tap. M = menu. ↑/↓ = swipe. U = look-up.'
-    : 'Browser preview. Click = tap. M = menu. U = look-up. No Even app bridge found, so data is mocked.';
+    ? 'Browser preview on live data. Click = ring tap. ↑/↓ = ring scroll. H = hold. M = menu. U = look-up.'
+    : 'Browser preview. Click = ring tap. ↑/↓ = ring scroll. M = menu. U = look-up. No Even app bridge found, so data is mocked.';
 
   // Create the page. If the firmware rejects the full layout, step down through
   // simpler variants so the lens still shows something and the phone page says
@@ -128,10 +139,31 @@ async function main() {
       asleep = false;
       console.log('[hud] wake:', reason);
       model.refresh?.();                       // one fresh pull so what you look at is current
+      if (reason === 'look-up') { void showHello(); return; }
       wakePage();
       lastText.fill(''); lastHrKey = ''; lastMode = '';
       render(true);
     }
+  }
+  // Hello flash: the lens fully lit with the greeting, date, weather and your
+  // heart rate, then the workout page. Shown on open and on a look-up wake.
+  let helloUntil = 0;
+  async function showHello() {
+    helloUntil = Date.now() + HELLO_MS + 1200;              // includes the time the tiles take to land
+    q.push('page', () => bridge.rebuildPageContainer(helloPageSpec()));
+    const scene = document.createElement('canvas'); scene.width = 576; scene.height = 288;
+    drawHello(scene, model.state);
+    const pngs = await splitTiles(scene);
+    pngs.forEach((png, i) => q.push(`hello:${i}`, () => bridge.updateImageRawData({ containerID: HELLO_IDS[i], containerName: `hello-${HELLO_IDS[i]}`, imageData: png })));
+    setTimeout(() => endHello(), HELLO_MS + 1200);
+  }
+  function endHello() {
+    if (!helloUntil) return;
+    helloUntil = 0;
+    awakeUntil = Date.now() + AWAKE_MS;
+    wakePage();
+    lastText.fill(''); lastHrKey = ''; lastMode = '';
+    render(true);
   }
   // Sleep replaces the whole page with one blank capture container in a single
   // write, so everything disappears together instead of one element at a time.
@@ -148,33 +180,34 @@ async function main() {
   const lookUp = createLookUp(() => wake('look-up'));
   bridge.imuControl(true).catch(() => {});
 
-  // Input. Taps can arrive without an eventType depending on source, so an
-  // untyped event on the capture container counts as a tap.
+  // Input, ring only. Scroll up = next track, scroll down = previous, tap =
+  // play/pause. The timer is reached through the menu alone.
   let lastScroll = 0;
   bridge.onEvenHubEvent((e: EvenHubEvent) => {
     if (e.sysEvent?.eventType === OsEventTypeList.IMU_DATA_REPORT) {
       const d = e.sysEvent.imuData; if (d) lookUp(d.x ?? 0, d.y ?? 0, d.z ?? 0);
       return;
     }
-    if (e.audioEvent) return;
-    const wasAsleep = asleep;
-    wake('input');
-    if (wasAsleep) return;                       // first touch only wakes the lens
+    if (e.audioEvent || fromTemple(e)) return;
     const menu = e.menuItemClickEvent?.itemID;
+    if (menu === undefined && helloUntil) { endHello(); return; }   // a touch skips the hello
+    const wasAsleep = asleep;
+    wake('ring');
+    if (wasAsleep) return;                       // first touch only wakes the lens
     if (menu === MENU.pause && !model.state.workout.paused) model.togglePause();
     else if (menu === MENU.resume && model.state.workout.paused) model.togglePause();
-    else if (menu === MENU.skip) model.skipTrack();
+    else if (menu === MENU.reset) model.resetTimer();
     else if (menu === MENU.exit) void bridge.shutDownPageContainer(1);   // system exit dialog; silent exit is rejected in Even QA
     if (menu !== undefined) { render(true); return; }
 
     const t = e.sysEvent?.eventType ?? e.textEvent?.eventType ?? e.listEvent?.eventType;
-    if (t === undefined && (e.textEvent || e.sysEvent)) { model.togglePause(); render(true); return; }
-    if (t === OsEventTypeList.CLICK_EVENT) { model.togglePause(); render(true); return; }
+    if (t === OsEventTypeList.CLICK_EVENT || (t === undefined && (e.textEvent || e.sysEvent))) { model.toggleMusic(); render(true); return; }
     if (t === OsEventTypeList.SCROLL_TOP_EVENT || t === OsEventTypeList.SCROLL_BOTTOM_EVENT) {
       const now = Date.now();
-      if (now - lastScroll < 700) return;               // one swipe fans out as several events
+      if (now - lastScroll < 500) return;               // one turn of the ring fans out as several events
       lastScroll = now;
-      model.skipTrack(); render(true); return;
+      if (t === OsEventTypeList.SCROLL_TOP_EVENT) model.skipTrack(); else model.prevTrack();
+      render(true); return;
     }
     if (t === OsEventTypeList.FOREGROUND_ENTER_EVENT) { lastText.fill(''); lastHrKey = ''; lastMode = ''; render(true); }
   });
@@ -193,6 +226,7 @@ async function main() {
   }
 
   function render(force = false) {
+    if (helloUntil) return;
     const s = model.state;
     const mode = s.workout.active ? 'workout' : 'ambient';
     const modeChanged = mode !== lastMode;
@@ -233,7 +267,7 @@ async function main() {
   }
 
   let last = Date.now();
-  render(true);
+  void showHello();
   setInterval(() => {
     const now = Date.now();
     model.tick(now - last);

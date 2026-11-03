@@ -195,6 +195,48 @@ export function newStrip(): HTMLCanvasElement {
   return c;
 }
 
+const UI_FONT = 'system-ui, -apple-system, Helvetica, Arial, sans-serif';
+function greeting(now: number) { const h = new Date(now).getHours(); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; }
+
+/** Hello flash, 576x288: the lens fully lit, text punched out in black. */
+export function drawHello(c: HTMLCanvasElement, s: HudState) {
+  const ctx = c.getContext('2d')!;
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 576, 288);
+  ctx.fillStyle = '#000'; ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
+  ctx.font = `700 38px ${UI_FONT}`;
+  ctx.fillText(`${greeting(s.now)}${s.name ? ', ' + s.name : ''}`, 32, 68);
+  const d = new Date(s.now);
+  const wd = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][d.getDay()];
+  const mon = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][d.getMonth()];
+  ctx.font = `600 13px ${UI_FONT}`; ctx.globalAlpha = 0.7;
+  ctx.fillText(`${wd}${s.weather ? `  ·  ${s.weather.tempC}°` : ''}`, 32, 214);
+  ctx.globalAlpha = 1; ctx.font = `600 27px ${UI_FONT}`;
+  ctx.fillText(`${d.getDate()} ${mon}`, 32, 248);
+  // Right: heart, HR, zone
+  const w = s.workout, hr = Math.round(w.hr);
+  ctx.save(); ctx.fillStyle = '#000';
+  const hx = 372, hy = 186, sc = 7; const rows = ['.##.##.', '#######', '#######', '.#####.', '..###..', '...#...'];
+  for (let r = 0; r < rows.length; r++) for (let col = 0; col < rows[r].length; col++) if (rows[r][col] === '#') ctx.fillRect(hx + col * sc, hy + r * sc, sc, sc);
+  ctx.restore();
+  ctx.textAlign = 'right'; ctx.font = `700 48px ${UI_FONT}`;
+  ctx.fillText(hr > 0 ? String(hr) : '--', 544, 236);
+  ctx.font = `600 11px ${UI_FONT}`; ctx.globalAlpha = 0.7;
+  const z = zoneOf(w.hr, w.hrMax);
+  ctx.fillText(hr > 0 ? (w.active ? `bpm · Z${z.n} ${z.name.toLowerCase()}` : 'bpm · resting') : 'no heart rate yet', 544, 254);
+  ctx.globalAlpha = 1; ctx.textAlign = 'left';
+}
+
+/** Split a 576x288 scene into four 288x144 PNGs: top-left, top-right, bottom-left, bottom-right. */
+export async function splitTiles(scene: HTMLCanvasElement): Promise<Uint8Array[]> {
+  const out: Uint8Array[] = [];
+  for (let i = 0; i < 4; i++) {
+    const t = newTile(); const ctx = t.getContext('2d')!;
+    ctx.drawImage(scene, (i % 2) * TILE_W, Math.floor(i / 2) * TILE_H, TILE_W, TILE_H, 0, 0, TILE_W, TILE_H);
+    out.push(await toPng(t));
+  }
+  return out;
+}
+
 export function drawBlankTile(c: HTMLCanvasElement) {
   const ctx = c.getContext('2d')!;
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, TILE_W, TILE_H);

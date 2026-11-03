@@ -19,7 +19,7 @@ export const BOTTOM = { clock: { x: 12, w: 200 }, date: { x: 212, w: 200 }, batt
 export const ROW_Y = [156, 194, 258] as const;
 export const STRIP = { x: 144, y: 234, w: 288, h: 20 } as const;
 export const DIM = 3; // textColor 0..4 for the secondary row
-export const MENU = { pause: 1, resume: 2, skip: 3, exit: 4 } as const;
+export const MENU = { pause: 1, resume: 2, reset: 3, exit: 4 } as const;
 
 export function pageSpec() {
   // SDK class instances with every field the host parses, exactly like Even's
@@ -50,12 +50,27 @@ export function pageSpec() {
     ],
     menuObject: new MenuContainerProperty({
       menuItems: [
-        new MenuItemProperty({ itemID: MENU.pause, itemName: 'Pause' }),
-        new MenuItemProperty({ itemID: MENU.resume, itemName: 'Resume' }),
-        new MenuItemProperty({ itemID: MENU.skip, itemName: 'Skip track' }),
+        new MenuItemProperty({ itemID: MENU.pause, itemName: 'Pause timer' }),
+        new MenuItemProperty({ itemID: MENU.resume, itemName: 'Resume timer' }),
+        new MenuItemProperty({ itemID: MENU.reset, itemName: 'Reset timer' }),
         new MenuItemProperty({ itemID: MENU.exit, itemName: 'Exit' }),
       ],
     }),
+  };
+}
+
+/** Hello flash: the whole lens as four image tiles. */
+export const HELLO_IDS = [11, 12, 13, 14] as const;
+export function helloPageSpec() {
+  const image = (id: number, x: number, y: number) => new ImageContainerProperty({ xPosition: x, yPosition: y, width: 288, height: 144, containerID: id, containerName: `hello-${id}`, zOrderIndex: id });
+  return {
+    containerTotalNum: 5,
+    imageObject: [image(11, 0, 0), image(12, 288, 0), image(13, 0, 144), image(14, 288, 144)],
+    textObject: [new TextContainerProperty({
+      xPosition: 0, yPosition: 0, width: SCREEN_W, height: 27,
+      borderWidth: 0, borderColor: 0, borderRadius: 0, paddingLength: 0,
+      containerID: 19, containerName: 'hello-capture', content: ' ', textColor: 0, isEventCapture: 1, zOrderIndex: 0,
+    })],
   };
 }
 

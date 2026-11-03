@@ -142,3 +142,12 @@ export async function startGymPlaylist(env: SpotifyEnv, playlistUri?: string): P
 export async function pause(env: SpotifyEnv) { await api(env, 'PUT', '/me/player/pause'); }
 export async function resume(env: SpotifyEnv) { await api(env, 'PUT', '/me/player/play'); }
 export async function next(env: SpotifyEnv) { await api(env, 'POST', '/me/player/next'); }
+export async function previous(env: SpotifyEnv) { await api(env, 'POST', '/me/player/previous'); }
+/** Play if paused, pause if playing. Returns the new state, or null when nothing is active. */
+export async function toggle(env: SpotifyEnv): Promise<boolean | null> {
+  const r = await api(env, 'GET', '/me/player');
+  if (!r || r.status === 204 || !r.ok) { await resume(env).catch(() => {}); return true; }
+  const j = await r.json() as any;
+  if (j.is_playing) { await pause(env); return false; }
+  await resume(env); return true;
+}

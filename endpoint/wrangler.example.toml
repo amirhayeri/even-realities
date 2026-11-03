@@ -16,6 +16,7 @@ WEATHER_LAT = "LAT"
 WEATHER_LON = "LON"
 WEATHER_CITY = "CITY"
 HR_MAX = "HRMAX"
+OWNER_NAME = "Amir"            # first name on the hello screen
 KV_WRITE_MIN_MS = "5000"     # min ms between KV writes from /health (free KV: 1,000 writes/day). Paid plan: "0"
 # SPOTIFY_DEVICE_NAME = "Amir's iPhone"   # optional: pin playback to one device by its exact Spotify name
 ZONE_GOAL_SEC = "1800"

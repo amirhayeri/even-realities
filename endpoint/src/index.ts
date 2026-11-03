@@ -22,6 +22,8 @@ export interface Env extends spotify.SpotifyEnv {
   GLUCOSE_URL?: string;
   /** Minimum ms between KV writes from /health. Free KV allows 1,000 writes/day; 10000 fits ~2.5 h of workout. */
   KV_WRITE_MIN_MS?: string;
+  /** First name for the hello screen. */
+  OWNER_NAME?: string;
 }
 
 interface Workout {
@@ -173,7 +175,7 @@ export default {
     const hrMax = Number(env.HR_MAX) || 185;
 
     // ---- Writes (POST from Shortcuts; GET with ?token= works too, for testing from a browser) ----
-    const writable = ['/workout/start', '/workout/end', '/pause', '/skip', '/health'];
+    const writable = ['/workout/start', '/workout/end', '/workout/reset', '/pause', '/skip', '/music/next', '/music/prev', '/music/toggle', '/health'];
     if (req.method === 'POST' || (req.method === 'GET' && writable.includes(path))) {
       const body = req.method === 'POST' ? (await req.json().catch(() => ({})) as any) : Object.fromEntries(url.searchParams);
 
@@ -230,9 +232,19 @@ export default {
         }
         return json({ ok: true, paused: w.paused });
       }
-      if (path === '/skip') {
-        ctx.waitUntil(spotify.next(env).catch(() => {}));
-        return json({ ok: true });
+      if (path === '/skip' || path === '/music/next') { ctx.waitUntil(spotify.next(env).catch(() => {})); return json({ ok: true }); }
+      if (path === '/music/prev') { ctx.waitUntil(spotify.previous(env).catch(() => {})); return json({ ok: true }); }
+      if (path === '/music/toggle') { const playing = await spotify.toggle(env).catch(() => null); return json({ ok: true, playing }); }
+      // Restart the elapsed count without touching the Watch session.
+      if (path === '/workout/reset') {
+        const w = await getWorkout(env);
+        if (w.active) {
+          w.startedAt = now; w.pausedTotalMs = 0; w.pausedAt = undefined; w.paused = false; w.inZoneSec = 0; w.inZoneAt = 0;
+          memWorkout = w;
+          await env.HUD.put(W_KEY, JSON.stringify(w));
+          ctx.waitUntil(spotify.resume(env).catch(() => {}));
+        }
+        return json({ ok: true, startedAt: w.startedAt });
       }
       return json({ error: 'not found' }, 404);
     }
@@ -266,6 +278,7 @@ export default {
       const stale = w.hrAt ? now - w.hrAt > 120_000 : true;
       return json({
         now,
+        name: env.OWNER_NAME ?? '',
         workout: {
           active: w.active, paused: w.paused, type: w.type, startedAt: w.startedAt, elapsedSec,
           hr: w.hr, hrAt: w.hrAt, hrMax, hrStale: stale, steps: w.steps, activeKcal: w.activeKcal, distanceM: w.distanceM,

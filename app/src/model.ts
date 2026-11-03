@@ -5,6 +5,8 @@ export type Trend = 'up' | 'flat' | 'down' | 'doubleUp' | 'doubleDown';
 
 export interface HudState {
   now: number;                       // ms epoch
+  name?: string;                     // first name for the hello screen
+  weather?: { city?: string; tempC: number; hi?: number; lo?: number; code: number } | null;
   workout: {
     active: boolean;
     paused: boolean;
@@ -37,8 +39,11 @@ export interface HudState {
 export interface Model {
   state: HudState;
   tick(dtMs: number): void;
-  togglePause(): void;
+  togglePause(): void;               // timer, from the menu
+  resetTimer(): void;
   skipTrack(): void;
+  prevTrack(): void;
+  toggleMusic(): void;
   /** Pull from the endpoint on the next tick regardless of cadence. */
   refresh?(): void;
 }
@@ -83,6 +88,8 @@ export function createMockModel(seed = Date.now()): Model {
 
   const state: HudState = {
     now: Date.now(),
+    name: 'Amir',
+    weather: { tempC: 9, code: 1 },
     workout: {
       active: true, paused: false, type: 'run', startedAt,
       elapsedSec: 24 * 60 + 12, hr: 148, hrAt: Date.now(), hrMax: 185,
@@ -138,6 +145,9 @@ export function createMockModel(seed = Date.now()): Model {
       state.workout.paused = !state.workout.paused;
       state.spotify.playing = !state.workout.paused;
     },
+    resetTimer() { state.workout.startedAt = Date.now(); state.workout.elapsedSec = 0; state.workout.inZoneSec = 0; state.workout.paused = false; },
+    prevTrack() { trackIdx = (trackIdx + TRACKS.length - 1) % TRACKS.length; const t = TRACKS[trackIdx]; const s = state.spotify; s.title = t.title; s.artist = t.artist; s.durationMs = t.durationMs; s.positionMs = 0; },
+    toggleMusic() { state.spotify.playing = !state.spotify.playing; },
     skipTrack() {
       trackIdx = (trackIdx + 1) % TRACKS.length;
       const t = TRACKS[trackIdx];
@@ -213,7 +223,20 @@ export function createRemoteModel(base: string, token: string, onStatus?: (msg: 
       fetch(`${root}/pause${q}`, { method: 'POST', headers }).catch(() => {});
     },
     skipTrack() {
-      fetch(`${root}/skip${q}`, { method: 'POST', headers }).catch(() => {});
+      fetch(`${root}/music/next${q}`, { method: 'POST', headers }).catch(() => {});
+    },
+    prevTrack() {
+      state.spotify.positionMs = 0;
+      fetch(`${root}/music/prev${q}`, { method: 'POST', headers }).catch(() => {});
+    },
+    toggleMusic() {
+      state.spotify.playing = !state.spotify.playing;
+      fetch(`${root}/music/toggle${q}`, { method: 'POST', headers }).then(r => r.json()).then((j: any) => { if (typeof j?.playing === 'boolean') state.spotify.playing = j.playing; }).catch(() => {});
+    },
+    resetTimer() {
+      state.workout.startedAt = Date.now(); state.workout.elapsedSec = 0; state.workout.inZoneSec = 0; state.workout.paused = false;
+      fetch(`${root}/workout/reset${q}`, { method: 'POST', headers }).catch(() => {});
+      lastFetch = 0;
     },
     refresh() { lastFetch = 0; },
   };

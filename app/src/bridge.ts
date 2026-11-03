@@ -95,8 +95,9 @@ function createPreviewBridge(): GlassesBridge {
   }
 
   function emit(e: EvenHubEvent) { for (const l of listeners) l(e); }
+  // The preview plays the ring (eventSource 2): both apps ignore the temples.
   function sysEvent(eventType: OsEventTypeList): EvenHubEvent {
-    return { sysEvent: { eventType, eventSource: 1 } as any };
+    return { sysEvent: { eventType, eventSource: 2 } as any };
   }
 
   canvas.addEventListener('click', () => {
@@ -117,6 +118,7 @@ function createPreviewBridge(): GlassesBridge {
     else if (ev.key === 'ArrowUp') emit(sysEvent(OsEventTypeList.SCROLL_TOP_EVENT));
     else if (ev.key === 'ArrowDown') emit(sysEvent(OsEventTypeList.SCROLL_BOTTOM_EVENT));
     else if (ev.key === ' ') { ev.preventDefault(); emit(sysEvent(OsEventTypeList.CLICK_EVENT)); }
+    else if (ev.key === 'h' || ev.key === 'H') { emit(sysEvent(OsEventTypeList.LONG_PRESS_EVENT)); setTimeout(() => emit(sysEvent(OsEventTypeList.LONG_PRESS_RELEASE_EVENT)), 300); }
     else if (ev.key === 'u' || ev.key === 'U') {
       // Simulated look-up: a burst of IMU samples that deviate from the resting baseline.
       for (let i = 0; i < 6; i++) emit({ sysEvent: { eventType: OsEventTypeList.IMU_DATA_REPORT, imuData: { x: 0, y: i < 3 ? 1000 : 0, z: 1000 } } as any });
