@@ -188,7 +188,12 @@ async function main() {
       const d = e.sysEvent.imuData; if (d) lookUp(d.x ?? 0, d.y ?? 0, d.z ?? 0);
       return;
     }
-    if (e.audioEvent || fromTemple(e)) return;
+    if (e.audioEvent) return;
+    // Exit is always reachable: a double tap from anywhere, or a ring hold,
+    // opens the system exit dialog (it asks before closing).
+    const t0 = e.sysEvent?.eventType ?? e.textEvent?.eventType;
+    if (t0 === OsEventTypeList.DOUBLE_CLICK_EVENT || (t0 === OsEventTypeList.LONG_PRESS_EVENT && !fromTemple(e))) { void bridge.shutDownPageContainer(1); return; }
+    if (t0 === OsEventTypeList.LONG_PRESS_RELEASE_EVENT || fromTemple(e)) return;
     const menu = e.menuItemClickEvent?.itemID;
     if (menu === undefined && helloUntil) { endHello(); return; }   // a touch skips the hello
     const wasAsleep = asleep;

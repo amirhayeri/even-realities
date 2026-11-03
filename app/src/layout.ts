@@ -83,6 +83,8 @@ export function blankPageSpec() {
       borderWidth: 0, borderColor: 0, borderRadius: 0, paddingLength: 0,
       containerID: 99, containerName: 'sleep', content: ' ', textColor: 0, isEventCapture: 1,
     })],
+    // The menu stays reachable while the lens is dark.
+    menuObject: new MenuContainerProperty({ menuItems: [new MenuItemProperty({ itemID: MENU.exit, itemName: 'Exit' })] }),
   };
 }
 
