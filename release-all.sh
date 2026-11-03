@@ -22,9 +22,14 @@ if [ "$APPS_ONLY" = 0 ]; then
   done
 fi
 
+# Beta builds show only on phones whose Even account is on the app's tester
+# list, and invites lapse after 7 days: re-add yourself on every release.
+TESTER="${EVEN_TESTER:-$(git config --get user.email 2>/dev/null || true)}"
+[ -f "$HOME/.even-tester" ] && TESTER=$(cat "$HOME/.even-tester")
+
 for repo in "$BIO" "$OFFICE"; do
   step "release glasses app $(basename "$repo")"
-  (cd "$repo/app" && npm run release -- "$MSG") || {
+  (cd "$repo/app" && npm run release -- "$MSG" && { [ -z "$TESTER" ] || npx evenhub testers add "$TESTER" --package-id "$(python3 -c 'import json;print(json.load(open("app.json"))["package_id"])')" || true; }) || {
     echo
     echo "Release failed in $repo/app. If it mentioned login or 401, run:  cd $repo/app && npx evenhub login   then run this script again."
     fail=1
