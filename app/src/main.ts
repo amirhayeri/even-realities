@@ -193,7 +193,7 @@ async function main() {
     const s = model.state, w = s.workout;
     if (!w.active) { dim = false; q.push('page', () => bridge.rebuildPageContainer(blankPageSpec())); lastText.fill(''); lastHrKey = ''; return; }
     const z = w.hr > 0 ? zoneOf(w.hr, w.hrMax).n : 0;
-    const key = `${z}|${Math.floor(w.elapsedSec / 60)}|${w.paused}`;
+    const key = `${z}|${Math.round(w.hr / 3)}|${Math.floor(w.elapsedSec / 60)}|${w.paused}`;   // HR to the nearest 3 bpm
     if (key === lastDimKey) return;
     lastDimKey = key;
     drawDimHrTile(hrTile, w.hr, w.hrMax); pushImage(IDS.hr, NAMES.hr, hrTile);

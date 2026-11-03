@@ -140,11 +140,12 @@ export function drawHrTile(c: HTMLCanvasElement, hr: number, hrMax: number, ageS
   }
 }
 
-/** Dim resting view of the HR tile: only the zone bar, faint. */
+/** Dim resting view of the HR tile: the number and the zone bar, faint. */
 export function drawDimHrTile(c: HTMLCanvasElement, hr: number, hrMax: number) {
   const ctx = c.getContext('2d')!;
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, TILE_W, TILE_H);
   const z = hr > 0 ? zoneOf(hr, hrMax) : null;
+  if (hr > 0) { const t = String(Math.round(hr)); dots(ctx, t, Math.round((288 - measureDots(t, 14)) / 2), 4, 14, 11, 0.3); }
   for (let i = 0; i < 5; i++) {
     const active = z !== null && i + 1 === z.n;
     const x = 12 + i * 53;
