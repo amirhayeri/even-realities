@@ -11,7 +11,7 @@ import { createWriteQueue } from './queue';
 
 const TICK_MS = 1000;
 const AWAKE_MS = 15_000;          // lens goes dark this long after the last wake
-const HELLO_MS = 1600;            // the green hello flash on look-up
+const HELLO_MS = 3000;            // the green hello on look-up, after its tiles have landed
 
 /** Input comes from the ring only. Temple taps and swipes are dropped: hair
  *  and headbands trigger them all day at the gym. Events without a source
