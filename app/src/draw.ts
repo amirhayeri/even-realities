@@ -140,31 +140,33 @@ export function drawHrTile(c: HTMLCanvasElement, hr: number, hrMax: number, ageS
   }
 }
 
-/** Dim resting view of the HR tile: the number and the zone bar, faint. */
-export function drawDimHrTile(c: HTMLCanvasElement, hr: number, hrMax: number) {
+/** Dim resting view, one tile in the top-right corner of the lens: minutes on
+ *  the left, the heart rate with a mini zone bar on the right, all faint. */
+export function drawDimTile(c: HTMLCanvasElement, hr: number, hrMax: number, elapsedSec: number, paused: boolean) {
   const ctx = c.getContext('2d')!;
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, TILE_W, TILE_H);
-  const z = hr > 0 ? zoneOf(hr, hrMax) : null;
-  if (hr > 0) { const t = String(Math.round(hr)); dots(ctx, t, Math.round((288 - measureDots(t, 14)) / 2), 4, 14, 11, 0.3); }
-  for (let i = 0; i < 5; i++) {
-    const active = z !== null && i + 1 === z.n;
-    const x = 12 + i * 53;
-    label(ctx, 'Z' + (i + 1), x + 25, 116, 'center', 10, active ? 0.45 : 0.15);
-    ctx.fillStyle = lvl(active ? 0.45 : (z && i + 1 < z.n ? 0.18 : 0.08));
-    ctx.fillRect(x, active ? 121 : 126, 50, active ? 16 : 8);
-  }
-  if (z) { ctx.fillStyle = lvl(0.45); ctx.fillRect(12 + (z.n - 1) * 53 + Math.round(z.within * 48), 119, 2, 20); }
-}
-
-/** Dim resting view of the activity tile: the timer in minutes, faint. */
-export function drawDimTimerTile(c: HTMLCanvasElement, elapsedSec: number, paused: boolean) {
-  const ctx = c.getContext('2d')!;
-  ctx.fillStyle = '#000'; ctx.fillRect(0, 0, TILE_W, TILE_H);
+  // Minutes
   const e = Math.floor(elapsedSec), h = Math.floor(e / 3600), m = Math.floor((e % 3600) / 60);
   const t = h > 0 ? `${h}:${String(m).padStart(2, '0')}` : `${m}`;
-  icon(ctx, paused ? 'pause' : 'clock', 12, 16, 0.25, 1);
-  dots(ctx, t, 30, 12, 7, 6, 0.3);
-  if (h === 0) label(ctx, 'min', 30 + measureDots(t, 7) + 10, 56, 'left', 11, 0.25);
+  icon(ctx, paused ? 'pause' : 'clock', 12, 14, 0.25, 1);
+  dots(ctx, t, 28, 10, 6, 5, 0.3);
+  if (h === 0) label(ctx, 'min', 28 + measureDots(t, 6) + 8, 48, 'left', 10, 0.25);
+  // Heart rate, right-aligned in the corner
+  if (hr > 0) {
+    const txt = String(Math.round(hr));
+    const w = measureDots(txt, 6);
+    dots(ctx, txt, 276 - w, 10, 6, 5, 0.35);
+    icon(ctx, 'heart', 276 - w - 12, 12, 0.3, 1);
+  }
+  // Mini zone bar under it
+  const z = hr > 0 ? zoneOf(hr, hrMax) : null;
+  const segW = 22, gap = 3, x0 = 276 - (5 * segW + 4 * gap);
+  for (let i = 0; i < 5; i++) {
+    const active = z !== null && i + 1 === z.n;
+    ctx.fillStyle = lvl(active ? 0.45 : (z && i + 1 < z.n ? 0.18 : 0.08));
+    ctx.fillRect(x0 + i * (segW + gap), active ? 58 : 61, segW, active ? 9 : 4);
+  }
+  if (z) { ctx.fillStyle = lvl(0.5); ctx.fillRect(x0 + (z.n - 1) * (segW + gap) + Math.round(z.within * (segW - 1)), 56, 1, 13); }
 }
 
 export function drawActivityTile(c: HTMLCanvasElement, s: HudState, blinkOn: boolean) {

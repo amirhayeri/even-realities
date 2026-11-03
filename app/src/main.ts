@@ -5,7 +5,7 @@
 import { CreateStartUpPageContainer, OsEventTypeList, StartUpPageCreateResult, TextContainerProperty, type EvenHubEvent } from '@evenrealities/even_hub_sdk';
 import { getBridge } from './bridge';
 import { createMockModel, createRemoteModel, hrAgeSec, hrStale, zoneOf, type Model } from './model';
-import { ageLabel, drawActivityTile, drawBlankTile, drawDimHrTile, drawDimTimerTile, drawHello, drawHrTile, drawSongStrip, newStrip, newTile, splitTiles, toPng } from './draw';
+import { ageLabel, drawActivityTile, drawBlankTile, drawDimTile, drawHello, drawHrTile, drawSongStrip, newStrip, newTile, splitTiles, toPng } from './draw';
 import { DIM, HELLO_IDS, IDS, MENU, NAMES, ambientLeft, batteryText, blankPageSpec, clockText, dateText, helloPageSpec, pageSpec, workoutLines } from './layout';
 import { createWriteQueue } from './queue';
 
@@ -195,8 +195,8 @@ async function main() {
     const key = `${z}|${Math.round(w.hr / 3)}|${Math.floor(w.elapsedSec / 60)}|${w.paused}`;   // HR to the nearest 3 bpm
     if (key === lastDimKey) return;
     lastDimKey = key;
-    drawDimHrTile(hrTile, w.hr, w.hrMax); pushImage(IDS.hr, NAMES.hr, hrTile);
-    drawDimTimerTile(actTile, w.elapsedSec, w.paused); pushImage(IDS.act, NAMES.act, actTile);
+    drawBlankTile(hrTile); pushImage(IDS.hr, NAMES.hr, hrTile);
+    drawDimTile(actTile, w.hr, w.hrMax, w.elapsedSec, w.paused); pushImage(IDS.act, NAMES.act, actTile);
     if (hasStrip) { drawBlankTile(songStrip); pushImage(IDS.song, NAMES.song, songStrip); }
     for (const [id, name, idx] of [[IDS.l1, NAMES.l1, 0], [IDS.l2, NAMES.l2, 1], [IDS.clock, NAMES.clock, 2], [IDS.date, NAMES.date, 3], [IDS.batt, NAMES.batt, 4]] as const) pushText(id, name, ' ', idx);
     lastHrKey = ''; lastText.fill(' ');
