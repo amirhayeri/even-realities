@@ -42,6 +42,10 @@ Office HUD, the morning briefing, is its own product and repo: https://github.co
 | `watch/` | watchOS app: owns the HKWorkoutSession, playlist picker, streams to the Worker. |
 | `docs/` | Even Hub reference compiled from the SDK, design canvas notes, the Even Terminal runbook. |
 
+## Controls, ring only
+
+Temple taps and swipes are ignored: hair triggers them at the gym. Scroll up = next track, scroll down = previous, tap = play or pause Spotify. Pause, resume and reset of the timer live in the menu. Double tap exits. Look up and the lens lights with a hello flash, then the workout screen.
+
 ## Hard‑won notes
 - `createStartUpPageContainer` returns `invalid` for any page unless text containers are SDK class instances with `borderWidth`, `borderColor`, `borderRadius` and `paddingLength` all set.
 - The Even app's WebView drops the `Authorization` header on cross‑origin requests. The token travels as `?token=` as well.
