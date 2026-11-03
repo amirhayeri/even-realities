@@ -148,7 +148,6 @@ async function main() {
       asleep = false;
       console.log('[hud] wake:', reason);
       model.refresh?.();                       // one fresh pull so what you look at is current
-      if (reason === 'look-up') { dim = false; void showHello(); return; }
       if (!dim) wakePage();
       dim = false;
       lastText.fill(''); lastHrKey = ''; lastMode = '';
@@ -156,7 +155,7 @@ async function main() {
     }
   }
   // Hello flash: the lens fully lit with the greeting, date, weather and your
-  // heart rate, then the workout page. Shown on open and on a look-up wake.
+  // heart rate, then the workout page. Shown once, when the app opens.
   let helloUntil = 0;
   async function showHello() {
     helloUntil = Date.now() + HELLO_MS + 1200;              // includes the time the tiles take to land
