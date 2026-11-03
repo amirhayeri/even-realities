@@ -43,6 +43,15 @@ function createLookUp(onLookUp: () => void) {
     }
   };
 }
+/** Phone-page input log: the last few raw events, so a gesture that does nothing can be read off the phone. */
+const eventLog: string[] = [];
+function logEvent(e: EvenHubEvent) {
+  const sys: any = e.sysEvent, tx: any = e.textEvent, m: any = e.menuItemClickEvent;
+  const part = sys ? `sys type=${sys.eventType} src=${sys.eventSource}` : tx ? `text type=${tx.eventType} src=${tx.eventSource}` : m ? `menu item=${m.itemID}` : `other ${Object.keys(e).join(',')}`;
+  eventLog.unshift(`${new Date().toLocaleTimeString([], { hour12: false })}  ${part}`);
+  if (eventLog.length > 6) eventLog.pop();
+  const el = document.getElementById('events'); if (el) el.textContent = 'last input\n' + eventLog.join('\n');
+}
 const status = (msg: string) => { const el = document.getElementById('status'); if (el) el.textContent = msg; };
 
 async function main() {
@@ -184,6 +193,7 @@ async function main() {
   // play/pause. The timer is reached through the menu alone.
   let lastScroll = 0;
   bridge.onEvenHubEvent((e: EvenHubEvent) => {
+    if (e.sysEvent?.eventType !== OsEventTypeList.IMU_DATA_REPORT) logEvent(e);
     if (e.sysEvent?.eventType === OsEventTypeList.IMU_DATA_REPORT) {
       const d = e.sysEvent.imuData; if (d) lookUp(d.x ?? 0, d.y ?? 0, d.z ?? 0);
       return;
