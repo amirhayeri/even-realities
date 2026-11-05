@@ -27,9 +27,19 @@ fi
 TESTER="${EVEN_TESTER:-$(git config --get user.email 2>/dev/null || true)}"
 [ -f "$HOME/.even-tester" ] && TESTER=$(cat "$HOME/.even-tester")
 
+# Re-add the tester for one app. Never fatal, never silent: a lapsed tester
+# invite is the usual reason a beta build does not show on the phone.
+add_tester() {
+  [ -n "$TESTER" ] || { echo "no tester address: put your Even account email in ~/.even-tester"; return 0; }
+  local pkg
+  pkg=$(grep -o '"package_id"[[:space:]]*:[[:space:]]*"[^"]*"' app.json 2>/dev/null | head -1 | cut -d'"' -f4)
+  [ -n "$pkg" ] || { echo "warning: could not read package_id from $(pwd)/app.json, tester not re-added"; return 0; }
+  npx evenhub testers add "$TESTER" --package-id "$pkg" || echo "warning: could not re-add $TESTER as tester of $pkg (see above); the build is still on beta"
+}
+
 for repo in "$BIO" "$OFFICE"; do
   step "release glasses app $(basename "$repo")"
-  (cd "$repo/app" && npm run release -- "$MSG" && { [ -z "$TESTER" ] || npx evenhub testers add "$TESTER" --package-id "$(python3 -c 'import json;print(json.load(open("app.json"))["package_id"])')" || true; }) || {
+  (cd "$repo/app" && npm run release -- "$MSG" && add_tester) || {
     echo
     echo "Release failed in $repo/app. If it mentioned login or 401, run:  cd $repo/app && npx evenhub login   then run this script again."
     fail=1
