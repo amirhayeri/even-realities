@@ -140,33 +140,36 @@ export function drawHrTile(c: HTMLCanvasElement, hr: number, hrMax: number, ageS
   }
 }
 
-/** Dim resting view, one tile in the top-right corner of the lens: minutes on
- *  the left, the heart rate with a mini zone bar on the right, all faint. */
-export function drawDimTile(c: HTMLCanvasElement, hr: number, hrMax: number, elapsedSec: number, paused: boolean) {
+/** Dim resting view, one tile in the top-left corner of the lens: heart rate
+ *  first, then the minutes, a mini zone bar and the clock under them, all faint. */
+export function drawDimTile(c: HTMLCanvasElement, hr: number, hrMax: number, elapsedSec: number, paused: boolean, now: number) {
   const ctx = c.getContext('2d')!;
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, TILE_W, TILE_H);
-  // Minutes
+  const OP = 0.3;
+  // Row 1: heart rate, then the timer in minutes
+  let x = 12;
+  if (hr > 0) {
+    icon(ctx, 'heart', x, 12, OP, 1);
+    x += 12;
+    x += dots(ctx, String(Math.round(hr)), x, 10, 6, 5, OP + 0.05) + 22;
+  }
   const e = Math.floor(elapsedSec), h = Math.floor(e / 3600), m = Math.floor((e % 3600) / 60);
   const t = h > 0 ? `${h}:${String(m).padStart(2, '0')}` : `${m}`;
-  icon(ctx, paused ? 'pause' : 'clock', 12, 14, 0.25, 1);
-  dots(ctx, t, 28, 10, 6, 5, 0.3);
-  if (h === 0) label(ctx, 'min', 28 + measureDots(t, 6) + 8, 48, 'left', 10, 0.25);
-  // Heart rate, right-aligned in the corner
-  if (hr > 0) {
-    const txt = String(Math.round(hr));
-    const w = measureDots(txt, 6);
-    dots(ctx, txt, 276 - w, 10, 6, 5, 0.35);
-    icon(ctx, 'heart', 276 - w - 12, 12, 0.3, 1);
-  }
-  // Mini zone bar under it
+  icon(ctx, paused ? 'pause' : 'clock', x, 14, OP - 0.05, 1);
+  x += 16;
+  x += dots(ctx, t, x, 10, 6, 5, OP);
+  if (h === 0) label(ctx, 'min', x + 6, 48, 'left', 10, OP - 0.05);
+  // Row 2: mini zone bar under the heart rate, clock under the timer
   const z = hr > 0 ? zoneOf(hr, hrMax) : null;
-  const segW = 22, gap = 3, x0 = 276 - (5 * segW + 4 * gap);
+  const segW = 22, gap = 3, x0 = 12;
   for (let i = 0; i < 5; i++) {
     const active = z !== null && i + 1 === z.n;
     ctx.fillStyle = lvl(active ? 0.45 : (z && i + 1 < z.n ? 0.18 : 0.08));
-    ctx.fillRect(x0 + i * (segW + gap), active ? 58 : 61, segW, active ? 9 : 4);
+    ctx.fillRect(x0 + i * (segW + gap), active ? 60 : 63, segW, active ? 9 : 4);
   }
-  if (z) { ctx.fillStyle = lvl(0.5); ctx.fillRect(x0 + (z.n - 1) * (segW + gap) + Math.round(z.within * (segW - 1)), 56, 1, 13); }
+  if (z) { ctx.fillStyle = lvl(0.5); ctx.fillRect(x0 + (z.n - 1) * (segW + gap) + Math.round(z.within * (segW - 1)), 58, 1, 13); }
+  const d = new Date(now);
+  label(ctx, `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`, x0 + 5 * (segW + gap) + 20, 70, 'left', 12, OP);
 }
 
 export function drawActivityTile(c: HTMLCanvasElement, s: HudState, blinkOn: boolean) {

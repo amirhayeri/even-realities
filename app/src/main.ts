@@ -192,11 +192,11 @@ async function main() {
     const s = model.state, w = s.workout;
     if (!w.active) { dim = false; q.push('page', () => bridge.rebuildPageContainer(blankPageSpec())); lastText.fill(''); lastHrKey = ''; return; }
     const z = w.hr > 0 ? zoneOf(w.hr, w.hrMax).n : 0;
-    const key = `${z}|${Math.round(w.hr / 3)}|${Math.floor(w.elapsedSec / 60)}|${w.paused}`;   // HR to the nearest 3 bpm
+    const key = `${z}|${Math.round(w.hr / 3)}|${Math.floor(w.elapsedSec / 60)}|${w.paused}|${Math.floor(s.now / 60_000)}`;   // HR to the nearest 3 bpm, minutes, clock minute
     if (key === lastDimKey) return;
     lastDimKey = key;
-    drawBlankTile(hrTile); pushImage(IDS.hr, NAMES.hr, hrTile);
-    drawDimTile(actTile, w.hr, w.hrMax, w.elapsedSec, w.paused); pushImage(IDS.act, NAMES.act, actTile);
+    drawDimTile(hrTile, w.hr, w.hrMax, w.elapsedSec, w.paused, s.now); pushImage(IDS.hr, NAMES.hr, hrTile);
+    drawBlankTile(actTile); pushImage(IDS.act, NAMES.act, actTile);
     if (hasStrip) { drawBlankTile(songStrip); pushImage(IDS.song, NAMES.song, songStrip); }
     for (const [id, name, idx] of [[IDS.l1, NAMES.l1, 0], [IDS.l2, NAMES.l2, 1], [IDS.clock, NAMES.clock, 2], [IDS.date, NAMES.date, 3], [IDS.batt, NAMES.batt, 4]] as const) pushText(id, name, ' ', idx);
     lastHrKey = ''; lastText.fill(' ');
@@ -217,11 +217,11 @@ async function main() {
       return;
     }
     if (e.audioEvent) return;
-    // Exit is always reachable: a double tap from anywhere, or a ring hold,
-    // opens the system exit dialog (it asks before closing).
+    // Exit only by double tap (or the menu). A hold belongs to the OS menu, so
+    // the app ignores it: it must not also open the exit dialog.
     const t0 = e.sysEvent?.eventType ?? e.textEvent?.eventType;
-    if (t0 === OsEventTypeList.DOUBLE_CLICK_EVENT || (t0 === OsEventTypeList.LONG_PRESS_EVENT && !fromTemple(e))) { void bridge.shutDownPageContainer(1); return; }
-    if (t0 === OsEventTypeList.LONG_PRESS_RELEASE_EVENT || fromTemple(e)) return;
+    if (t0 === OsEventTypeList.DOUBLE_CLICK_EVENT) { void bridge.shutDownPageContainer(1); return; }
+    if (t0 === OsEventTypeList.LONG_PRESS_EVENT || t0 === OsEventTypeList.LONG_PRESS_RELEASE_EVENT || fromTemple(e)) return;
     const menu = e.menuItemClickEvent?.itemID;
     if (menu === undefined && helloUntil) { endHello(); return; }   // a touch skips the hello
     const wasAsleep = asleep;
