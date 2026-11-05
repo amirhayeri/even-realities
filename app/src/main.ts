@@ -157,14 +157,23 @@ async function main() {
   // Hello flash: the lens fully lit with the greeting, date, weather and your
   // heart rate, then the workout page. Shown once, when the app opens.
   let helloUntil = 0;
-  async function showHello() {
+  let helloHr = -1;   // HR the hello tiles currently show (-1 = not painted)
+  function showHello() {
     helloUntil = Date.now() + HELLO_MS + 1200;              // includes the time the tiles take to land
     q.push('page', () => bridge.rebuildPageContainer(helloPageSpec()));
+    model.refresh?.();   // pull the HR now; the first poll repaints the hello when it lands
+    paintHello().catch(err => console.warn('[hud] hello paint failed', err));
+    setTimeout(() => endHello(), HELLO_MS + 1200);
+  }
+  async function paintHello() {
+    const hr = Math.round(model.state.workout.hr);
+    if (hr === helloHr) return;
+    helloHr = hr;
     const scene = document.createElement('canvas'); scene.width = 576; scene.height = 288;
     drawHello(scene, model.state);
     const pngs = await splitTiles(scene);
+    if (!helloUntil) return;   // the hello ended while the tiles were encoding
     pngs.forEach((png, i) => q.push(`hello:${i}`, () => bridge.updateImageRawData({ containerID: HELLO_IDS[i], containerName: `hello-${HELLO_IDS[i]}`, imageData: png })));
-    setTimeout(() => endHello(), HELLO_MS + 1200);
   }
   function endHello() {
     if (!helloUntil) return;
@@ -300,13 +309,14 @@ async function main() {
   }
 
   let last = Date.now();
-  void showHello();
+  showHello();
   setInterval(() => {
     const now = Date.now();
     model.tick(now - last);
     last = now;
     tick++;
     const s = model.state;
+    if (helloUntil) { paintHello().catch(err => console.warn('[hud] hello paint failed', err)); return; }  // the hello starts before the first pull: repaint it once the HR arrives
     const mode = s.workout.active ? 'workout' : 'ambient';
     if (mode !== lastMode) { render(); return; }    // state change: render() wakes the lens itself
     // Zone change during a workout wakes the lens, but only once the new zone
