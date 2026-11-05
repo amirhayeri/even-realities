@@ -227,10 +227,11 @@ export function newStrip(): HTMLCanvasElement {
 const UI_FONT = 'system-ui, -apple-system, Helvetica, Arial, sans-serif';
 function greeting(now: number) { const h = new Date(now).getHours(); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; }
 
-/** Hello flash, 576x288: the lens fully lit, text punched out in black. */
+/** Hello, 576x288: the lens lit at a quarter brightness, text punched out in black. */
+export const HELLO_GROUND = '#404040';   // 25 % of full: a fully lit lens is harsh on the eyes
 export function drawHello(c: HTMLCanvasElement, s: HudState) {
   const ctx = c.getContext('2d')!;
-  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, 576, 288);
+  ctx.fillStyle = HELLO_GROUND; ctx.fillRect(0, 0, 576, 288);
   ctx.fillStyle = '#000'; ctx.textBaseline = 'alphabetic'; ctx.textAlign = 'left';
   ctx.font = `700 46px ${UI_FONT}`;
   ctx.fillText(`${greeting(s.now)}${s.name ? ', ' + s.name : ''}`, 28, 72);
