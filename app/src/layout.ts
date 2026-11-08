@@ -19,7 +19,7 @@ export const BOTTOM = { clock: { x: 12, w: 200 }, date: { x: 212, w: 200 }, batt
 export const ROW_Y = [156, 194, 258] as const;
 export const STRIP = { x: 144, y: 234, w: 288, h: 20 } as const;
 export const DIM = 3; // textColor 0..4 for the secondary row
-export const MENU = { pause: 1, resume: 2, reset: 3, exit: 4 } as const;
+export const MENU = { pause: 1, resume: 2, reset: 3, bright: 5, exit: 4 } as const;
 
 export function pageSpec() {
   // SDK class instances with every field the host parses, exactly like Even's
@@ -53,6 +53,7 @@ export function pageSpec() {
         new MenuItemProperty({ itemID: MENU.pause, itemName: 'Pause timer' }),
         new MenuItemProperty({ itemID: MENU.resume, itemName: 'Resume timer' }),
         new MenuItemProperty({ itemID: MENU.reset, itemName: 'Reset timer' }),
+        new MenuItemProperty({ itemID: MENU.bright, itemName: 'Brightness' }),
         new MenuItemProperty({ itemID: MENU.exit, itemName: 'Exit' }),
       ],
     }),

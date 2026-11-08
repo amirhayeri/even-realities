@@ -5,7 +5,7 @@
 import { CreateStartUpPageContainer, OsEventTypeList, StartUpPageCreateResult, TextContainerProperty, type EvenHubEvent } from '@evenrealities/even_hub_sdk';
 import { getBridge } from './bridge';
 import { createMockModel, createRemoteModel, hrAgeSec, hrStale, zoneOf, type Model } from './model';
-import { ageLabel, drawActivityTile, drawBlankTile, drawDimTile, drawHello, drawHrTile, drawSongStrip, newStrip, newTile, splitTiles, toPng } from './draw';
+import { ageLabel, drawActivityTile, drawBlankTile, drawDimTile, drawHello, drawHrTile, drawSongStrip, imageBrightness, newStrip, newTile, setImageBrightness, splitTiles, toPng } from './draw';
 import { DIM, HELLO_IDS, IDS, MENU, NAMES, ambientLeft, batteryText, blankPageSpec, clockText, dateText, helloPageSpec, pageSpec, workoutLines } from './layout';
 import { createWriteQueue } from './queue';
 
@@ -128,9 +128,11 @@ async function main() {
   // position advance locally between pulls, so the lens still ticks.
   function pollInterval(): number {
     const w = model.state.workout;
-    if (!w.active) return 60_000;
-    const z = w.hr > 0 ? zoneOf(w.hr, w.hrMax).n : 1;
-    return z <= 1 ? 60_000 : z === 2 ? 30_000 : 15_000;
+    const base = !w.active ? 60_000 : (w.hr > 0 ? zoneOf(w.hr, w.hrMax).n : 1) <= 1 ? 60_000 : zoneOf(w.hr, w.hrMax).n === 2 ? 30_000 : 15_000;
+    // Right after a Watch control the Worker asks for fast polls so the lens
+    // follows within seconds. Only while the lens is lit: asleep, nobody is looking.
+    const hint = model.state.pollMs ?? 0;
+    return hint > 0 && !asleep ? Math.min(base, hint) : base;
   }
   /** Idle or asleep: ask the Worker for the cheap version (no Spotify, no weather). */
   function lite(): boolean { return asleep || !model.state.workout.active; }
@@ -239,6 +241,7 @@ async function main() {
     if (menu === MENU.pause && !model.state.workout.paused) model.togglePause();
     else if (menu === MENU.resume && model.state.workout.paused) model.togglePause();
     else if (menu === MENU.reset) model.resetTimer();
+    else if (menu === MENU.bright) model.cycleBrightness();
     else if (menu === MENU.exit) void bridge.shutDownPageContainer(1);   // system exit dialog; silent exit is rejected in Even QA
     if (menu !== undefined) { render(true); return; }
 
@@ -316,6 +319,9 @@ async function main() {
     last = now;
     tick++;
     const s = model.state;
+    // Brightness can change from the glasses menu or the Watch: repaint every tile once.
+    const bright = s.display?.brightness ?? 3;
+    if (bright !== imageBrightness()) { setImageBrightness(bright); lastText.fill(''); lastHrKey = ''; lastMode = ''; if (!helloUntil) { render(true); return; } }
     if (helloUntil) { paintHello().catch(err => console.warn('[hud] hello paint failed', err)); return; }  // the hello starts before the first pull: repaint it once the HR arrives
     const mode = s.workout.active ? 'workout' : 'ambient';
     if (mode !== lastMode) { render(); return; }    // state change: render() wakes the lens itself

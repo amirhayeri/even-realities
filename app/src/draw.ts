@@ -275,7 +275,28 @@ export function drawBlankTile(c: HTMLCanvasElement) {
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, TILE_W, TILE_H);
 }
 
-export function toPng(c: HTMLCanvasElement): Promise<Uint8Array> {
+/** Lens brightness for image tiles: 1 dim, 2 medium, 3 full. Applied when a tile is encoded. */
+const BRIGHTNESS_SCALE = [0, 0.4, 0.7, 1] as const;
+let brightnessLevel = 3;
+export function setImageBrightness(level: number) { brightnessLevel = level >= 1 && level <= 3 ? Math.round(level) : 3; }
+export function imageBrightness(): number { return brightnessLevel; }
+let dimScratch: HTMLCanvasElement | null = null;
+function dimmed(c: HTMLCanvasElement): HTMLCanvasElement {
+  const k = BRIGHTNESS_SCALE[brightnessLevel];
+  if (k >= 1) return c;
+  // Scale a copy: the caller's canvas may be re-encoded without a redraw.
+  if (!dimScratch) dimScratch = document.createElement('canvas');
+  dimScratch.width = c.width; dimScratch.height = c.height;
+  const ctx = dimScratch.getContext('2d')!;
+  ctx.drawImage(c, 0, 0);
+  const id = ctx.getImageData(0, 0, c.width, c.height), d = id.data;
+  for (let i = 0; i < d.length; i += 4) { d[i] = Math.round(d[i] * k); d[i + 1] = Math.round(d[i + 1] * k); d[i + 2] = Math.round(d[i + 2] * k); }
+  ctx.putImageData(id, 0, 0);
+  return dimScratch;
+}
+
+export function toPng(src: HTMLCanvasElement): Promise<Uint8Array> {
+  const c = dimmed(src);
   return new Promise((resolve, reject) => {
     c.toBlob(b => {
       if (!b) return reject(new Error('toBlob failed'));

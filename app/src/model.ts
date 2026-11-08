@@ -34,6 +34,8 @@ export interface HudState {
   rings: { move: number; moveGoal: number; exercise: number; exerciseGoal: number; stand: number; standGoal: number };
   glucose?: { mmol: number; trend: Trend; delta15: number; pred30?: number };
   battery: number | null;
+  display?: { brightness: number };  // 1..3, image tiles are scaled by it (3 = full)
+  pollMs?: number;                   // Worker hint: poll this fast for a moment after a Watch control (0 = none)
 }
 
 export interface Model {
@@ -44,9 +46,13 @@ export interface Model {
   skipTrack(): void;
   prevTrack(): void;
   toggleMusic(): void;
+  /** Step the lens brightness 3 → 2 → 1 → 3; shared with the Watch through the Worker. */
+  cycleBrightness(): void;
   /** Pull from the endpoint on the next tick regardless of cadence. */
   refresh?(): void;
 }
+
+export function nextBrightness(b: number): number { return b <= 1 ? 3 : b - 1; }
 
 export function zoneOf(hr: number, hrMax: number) {
   const pct = hr / hrMax;
@@ -148,6 +154,7 @@ export function createMockModel(seed = Date.now()): Model {
     resetTimer() { state.workout.startedAt = Date.now(); state.workout.elapsedSec = 0; state.workout.inZoneSec = 0; state.workout.paused = false; },
     prevTrack() { trackIdx = (trackIdx + TRACKS.length - 1) % TRACKS.length; const t = TRACKS[trackIdx]; const s = state.spotify; s.title = t.title; s.artist = t.artist; s.durationMs = t.durationMs; s.positionMs = 0; },
     toggleMusic() { state.spotify.playing = !state.spotify.playing; },
+    cycleBrightness() { state.display = { brightness: nextBrightness(state.display?.brightness ?? 3) }; },
     skipTrack() {
       trackIdx = (trackIdx + 1) % TRACKS.length;
       const t = TRACKS[trackIdx];
@@ -237,6 +244,11 @@ export function createRemoteModel(base: string, token: string, onStatus?: (msg: 
       state.workout.startedAt = Date.now(); state.workout.elapsedSec = 0; state.workout.inZoneSec = 0; state.workout.paused = false;
       fetch(`${root}/workout/reset${q}`, { method: 'POST', headers }).catch(() => {});
       lastFetch = 0;
+    },
+    cycleBrightness() {
+      const b = nextBrightness(state.display?.brightness ?? 3);
+      state.display = { brightness: b };
+      fetch(`${root}/display${q}`, { method: 'POST', headers, body: JSON.stringify({ brightness: b }) }).catch(() => {});
     },
     refresh() { lastFetch = 0; },
   };

@@ -131,7 +131,14 @@ final class WorkoutManager: NSObject, ObservableObject {
         do {
             let s = try HKWorkoutSession(healthStore: store, configuration: config)
             let b = s.associatedWorkoutBuilder()
-            b.dataSource = HKLiveWorkoutDataSource(healthStore: store, workoutConfiguration: config)
+            let source = HKLiveWorkoutDataSource(healthStore: store, workoutConfiguration: config)
+            // The live data source only collects the types Apple deems typical for
+            // the activity: a strength session gets heart rate and energy, no steps
+            // and no distance. Ask for them explicitly or the lens shows 0 forever.
+            for t in [HKQuantityTypeIdentifier.stepCount, .distanceWalkingRunning, .distanceCycling, .activeEnergyBurned, .heartRate] {
+                source.enableCollection(for: HKQuantityType(t), predicate: nil)
+            }
+            b.dataSource = source
             s.delegate = self
             b.delegate = self
             session = s; builder = b
@@ -157,6 +164,24 @@ final class WorkoutManager: NSObject, ObservableObject {
         guard let session else { return }
         if paused { session.resume() } else { session.pause() }
         paused.toggle()
+        uploader.control("/pause")                  // the lens timer and Spotify follow
+    }
+
+    // Ring controls, on the wrist: the ring comes off for bars and dumbbells.
+    // Each one posts to the Worker; the glasses pick it up within seconds.
+    @Published var brightness = 3
+    private var resetBase: TimeInterval = 0        // elapsed shown = builder elapsed - resetBase
+    var shownElapsed: TimeInterval { max(0, elapsed - resetBase) }
+    func skipTrack() { uploader.control("/music/next") }
+    func prevTrack() { uploader.control("/music/prev") }
+    func toggleMusic() { uploader.control("/music/toggle") }
+    func resetTimer() {
+        resetBase = elapsed
+        uploader.control("/workout/reset")
+    }
+    func cycleBrightness() {
+        brightness = brightness <= 1 ? 3 : brightness - 1
+        uploader.control("/display", body: ["brightness": brightness])
     }
 
     func end() {
@@ -167,7 +192,7 @@ final class WorkoutManager: NSObject, ObservableObject {
             builder.finishWorkout { _, _ in
                 Task { @MainActor in
                     guard let self else { return }
-                    self.running = false; self.paused = false; self.status = "saved"
+                    self.running = false; self.paused = false; self.status = "saved"; self.resetBase = 0
                     self.uploader.workoutEnd()
                     self.session = nil; self.builder = nil
                 }

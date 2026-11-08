@@ -51,6 +51,18 @@ const W_KEY = 'workout';
 /** Freshest workout seen by this isolate, served between throttled KV writes (best effort). */
 let memWorkout: Workout | null = null;
 const R_KEY = 'rings';
+// Lens settings the Watch or the glasses menu can change. Brightness 1..3 scales
+// the image tiles (3 = full). controlAt is kept in memory only: it is a hint that
+// tells the glasses to poll fast for a moment after a control was pressed.
+const D_KEY = 'display';
+interface Display { brightness: number }
+let memControlAt = 0;
+const FAST_POLL_MS = 3_000, FAST_POLL_WINDOW_MS = 45_000;
+async function getDisplay(env: Env): Promise<Display> {
+  const d = await env.HUD.get(D_KEY, 'json') as Partial<Display> | null;
+  const b = Number(d?.brightness);
+  return { brightness: b >= 1 && b <= 3 ? Math.round(b) : 3 };
+}
 const CORS = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET,POST,OPTIONS',
@@ -175,9 +187,22 @@ export default {
     const hrMax = Number(env.HR_MAX) || 185;
 
     // ---- Writes (POST from Shortcuts; GET with ?token= works too, for testing from a browser) ----
-    const writable = ['/workout/start', '/workout/end', '/workout/reset', '/pause', '/skip', '/music/next', '/music/prev', '/music/toggle', '/health'];
+    const writable = ['/workout/start', '/workout/end', '/workout/reset', '/pause', '/skip', '/music/next', '/music/prev', '/music/toggle', '/health', '/display'];
     if (req.method === 'POST' || (req.method === 'GET' && writable.includes(path))) {
       const body = req.method === 'POST' ? (await req.json().catch(() => ({})) as any) : Object.fromEntries(url.searchParams);
+      // A control from the Watch should show on the lens within seconds, not at
+      // the next scheduled poll: remember when it happened (see /state pollMs).
+      if (path !== '/health' && writable.includes(path)) memControlAt = now;
+
+      if (path === '/display') {
+        const d = await getDisplay(env);
+        const b = Number(body.brightness);
+        if (b >= 1 && b <= 3) d.brightness = Math.round(b);
+        else if (body.brightness === 'cycle') d.brightness = d.brightness <= 1 ? 3 : d.brightness - 1;
+        else return json({ error: 'brightness must be 1..3 or "cycle"' }, 400);
+        await env.HUD.put(D_KEY, JSON.stringify(d));
+        return json({ ok: true, brightness: d.brightness });
+      }
 
       if (path === '/workout/start') {
         const w = defaultWorkout();
@@ -267,11 +292,12 @@ export default {
     if (path === '/state') {
       // lite=1: the lens is idle or asleep; skip the Spotify and weather lookups.
       const lite = url.searchParams.get('lite') === '1';
-      const [w, rings, sp, wx, gl] = await Promise.all([
+      const [w, rings, sp, wx, gl, display] = await Promise.all([
         getWorkout(env), getRings(env),
         lite ? Promise.resolve(null) : spotify.nowPlaying(env).catch(() => null),
         lite ? Promise.resolve(null) : weather(env).catch(() => null),
         glucose(env),
+        getDisplay(env),
       ]);
       const pausedMs = w.pausedTotalMs + (w.paused && w.pausedAt ? now - w.pausedAt : 0);
       const elapsedSec = w.active ? Math.max(0, (now - w.startedAt - pausedMs) / 1000) : 0;
@@ -289,6 +315,9 @@ export default {
         weather: wx,
         glucose: gl,
         battery: null,
+        display,
+        // 0 = keep the normal cadence; otherwise poll this fast for a moment after a control.
+        pollMs: now - memControlAt < FAST_POLL_WINDOW_MS ? FAST_POLL_MS : 0,
       });
     }
     return json({ error: 'not found' }, 404);

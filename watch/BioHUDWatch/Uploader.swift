@@ -45,6 +45,11 @@ final class Uploader {
         post(path: "/workout/end", body: [:], force: true)
     }
 
+    /// A ring control pressed on the Watch: music, timer, brightness. Sent at once.
+    func control(_ path: String, body: [String: Any] = [:]) {
+        post(path: path, body: body, force: true)
+    }
+
     /// Called up to once per second; coalesces while a request is in flight.
     func health(hr: Double?, steps: Double?, kcal: Double?, distanceM: Double?) {
         var body: [String: Any] = [:]

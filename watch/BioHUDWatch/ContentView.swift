@@ -4,7 +4,43 @@ struct ContentView: View {
     @EnvironmentObject var w: WorkoutManager
 
     var body: some View {
-        if w.running { live } else { idle }
+        if w.running {
+            // Page 1: the numbers. Page 2: the ring's controls, for when the ring is off.
+            TabView { live; controls }
+                .tabViewStyle(.page)
+        } else { idle }
+    }
+
+    private var controls: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                Button { w.prevTrack() } label: { Image(systemName: "backward.fill").frame(maxWidth: .infinity) }
+                Button { w.toggleMusic() } label: { Image(systemName: "playpause.fill").frame(maxWidth: .infinity) }
+                Button { w.skipTrack() } label: { Image(systemName: "forward.fill").frame(maxWidth: .infinity) }
+            }
+            .buttonStyle(.bordered)
+            .tint(.green)
+            HStack(spacing: 8) {
+                Button { w.togglePause() } label: {
+                    Label(w.paused ? "Resume" : "Pause", systemImage: w.paused ? "play.fill" : "pause.fill").frame(maxWidth: .infinity)
+                }
+                .tint(.yellow)
+                Button(role: .destructive) { w.resetTimer() } label: {
+                    Label("Reset", systemImage: "arrow.counterclockwise").frame(maxWidth: .infinity)
+                }
+                .tint(.orange)
+            }
+            .buttonStyle(.bordered)
+            .font(.footnote)
+            Button { w.cycleBrightness() } label: {
+                Label("Lens \(["", "dim", "medium", "bright"][w.brightness])", systemImage: w.brightness == 1 ? "sun.min" : w.brightness == 2 ? "sun.min.fill" : "sun.max.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .tint(.gray)
+            .font(.footnote)
+        }
+        .padding(.horizontal)
     }
 
     private var idle: some View {
@@ -45,7 +81,7 @@ struct ContentView: View {
                 Spacer()
                 Image(systemName: "heart.fill").foregroundStyle(.red)
             }
-            Text(timeString(w.elapsed)).font(.title3).monospacedDigit().foregroundStyle(w.paused ? .yellow : .primary)
+            Text(timeString(w.shownElapsed)).font(.title3).monospacedDigit().foregroundStyle(w.paused ? .yellow : .primary)
             HStack {
                 Label("\(Int(w.steps))", systemImage: "figure.walk")
                 Spacer()
