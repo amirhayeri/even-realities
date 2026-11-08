@@ -17,37 +17,38 @@ struct ContentView: View {
     // MARK: idle
 
     private var idle: some View {
-        ScrollView {
-            VStack(spacing: 8) {
-                if w.playlists.isEmpty {
-                    Text("No playlists yet").font(.footnote).foregroundStyle(.secondary).frame(height: 60)
-                } else {
-                    Picker("Playlist", selection: Binding(get: { w.playlist }, set: { w.choose($0) })) {
-                        ForEach(w.playlists) { p in Text(p.name).tag(Optional(p)) }
-                    }
-                    .pickerStyle(.wheel)
-                    .frame(height: 60)
+        // No ScrollView here: a wheel picker and a scroll view both want the
+        // crown on watchOS and the screen stops responding.
+        VStack(spacing: 6) {
+            if w.playlists.isEmpty {
+                Text("No playlists yet").font(.footnote).foregroundStyle(.secondary).frame(height: 56)
+            } else {
+                Picker("Playlist", selection: Binding(get: { w.playlist }, set: { w.choose($0) })) {
+                    ForEach(w.playlists) { p in Text(p.name).tag(Optional(p)) }
                 }
-                // A full-width row that opens a list: the old side-by-side button
-                // truncated "Strength" on a 41 mm watch.
-                Picker(selection: $w.kind) {
-                    ForEach(WorkoutManager.Kind.allCases) { k in
-                        Label(k.rawValue, systemImage: k.symbol).tag(k)
-                    }
-                } label: {
-                    Label("Workout", systemImage: w.kind.symbol)
-                }
-                .pickerStyle(.navigationLink)
-                Button { w.start() } label: {
-                    Label("Start", systemImage: "play.fill").frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.green)
-                .disabled(!w.authorized)
-                Text(w.status).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(2)
+                .pickerStyle(.wheel)
+                .frame(height: 56)
             }
-            .padding(.horizontal)
+            // A full-width row that opens a list: the old side-by-side button
+            // truncated "Strength" on a 41 mm watch.
+            Picker(selection: $w.kind) {
+                ForEach(WorkoutManager.Kind.allCases) { k in
+                    Label(k.rawValue, systemImage: k.symbol).tag(k)
+                }
+            } label: {
+                Label(w.kind.rawValue, systemImage: w.kind.symbol)
+            }
+            .pickerStyle(.navigationLink)
+            .font(.footnote)
+            Button { w.start() } label: {
+                Label("Start", systemImage: "play.fill").frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.green)
+            .disabled(!w.authorized)
+            Text(w.status).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
         }
+        .padding(.horizontal)
         .task { if w.playlists.isEmpty { await w.loadPlaylists() } }
     }
 
@@ -85,7 +86,7 @@ struct ContentView: View {
         // Crown = ring scroll. One detent per track, debounced like the ring.
         .focusable(true)
         .digitalCrownRotation($crown, from: -10_000, through: 10_000, by: 1, sensitivity: .low, isContinuous: false, isHapticFeedbackEnabled: true)
-        .onChange(of: crown) { v in
+        .onChange(of: crown) { _, v in
             let d = v - crownBase
             if abs(d) >= 1 { crownBase = v; w.crownScroll(forward: d > 0) }
         }
