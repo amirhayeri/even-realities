@@ -5,75 +5,59 @@ struct ContentView: View {
 
     var body: some View {
         if w.running {
-            // Page 1: the numbers. Page 2: the ring's controls, for when the ring is off.
-            TabView { live; controls }
+            // Page 1 is the ring: crown turns = next/previous track, tap = play/pause,
+            // hold = menu. Page 2 keeps plain buttons for the same things.
+            TabView { ring; buttons }
                 .tabViewStyle(.page)
-        } else { idle }
+        } else {
+            NavigationStack { idle }
+        }
     }
 
-    private var controls: some View {
-        VStack(spacing: 8) {
-            HStack(spacing: 8) {
-                Button { w.prevTrack() } label: { Image(systemName: "backward.fill").frame(maxWidth: .infinity) }
-                Button { w.toggleMusic() } label: { Image(systemName: "playpause.fill").frame(maxWidth: .infinity) }
-                Button { w.skipTrack() } label: { Image(systemName: "forward.fill").frame(maxWidth: .infinity) }
-            }
-            .buttonStyle(.bordered)
-            .tint(.green)
-            HStack(spacing: 8) {
-                Button { w.togglePause() } label: {
-                    Label(w.paused ? "Resume" : "Pause", systemImage: w.paused ? "play.fill" : "pause.fill").frame(maxWidth: .infinity)
-                }
-                .tint(.yellow)
-                Button(role: .destructive) { w.resetTimer() } label: {
-                    Label("Reset", systemImage: "arrow.counterclockwise").frame(maxWidth: .infinity)
-                }
-                .tint(.orange)
-            }
-            .buttonStyle(.bordered)
-            .font(.footnote)
-            Button { w.cycleBrightness() } label: {
-                Label("Lens \(["", "dim", "medium", "bright"][w.brightness])", systemImage: w.brightness == 1 ? "sun.min" : w.brightness == 2 ? "sun.min.fill" : "sun.max.fill")
-                    .frame(maxWidth: .infinity)
-            }
-            .buttonStyle(.bordered)
-            .tint(.gray)
-            .font(.footnote)
-        }
-        .padding(.horizontal)
-    }
+    // MARK: idle
 
     private var idle: some View {
-        VStack(spacing: 6) {
-            if w.playlists.isEmpty {
-                Text("No playlists yet").font(.footnote).foregroundStyle(.secondary).frame(height: 70)
-            } else {
-                Picker("Playlist", selection: Binding(get: { w.playlist }, set: { w.choose($0) })) {
-                    ForEach(w.playlists) { p in Text(p.name).tag(Optional(p)) }
+        ScrollView {
+            VStack(spacing: 8) {
+                if w.playlists.isEmpty {
+                    Text("No playlists yet").font(.footnote).foregroundStyle(.secondary).frame(height: 60)
+                } else {
+                    Picker("Playlist", selection: Binding(get: { w.playlist }, set: { w.choose($0) })) {
+                        ForEach(w.playlists) { p in Text(p.name).tag(Optional(p)) }
+                    }
+                    .pickerStyle(.wheel)
+                    .frame(height: 60)
                 }
-                .pickerStyle(.wheel)
-                .frame(height: 70)
-            }
-            HStack {
-                Button { w.nextKind() } label: {
-                    Label(w.kind.rawValue, systemImage: "figure.run").font(.footnote)
+                // A full-width row that opens a list: the old side-by-side button
+                // truncated "Strength" on a 41 mm watch.
+                Picker(selection: $w.kind) {
+                    ForEach(WorkoutManager.Kind.allCases) { k in
+                        Label(k.rawValue, systemImage: k.symbol).tag(k)
+                    }
+                } label: {
+                    Label("Workout", systemImage: w.kind.symbol)
                 }
-                .buttonStyle(.bordered)
-                .tint(.gray)
+                .pickerStyle(.navigationLink)
                 Button { w.start() } label: {
                     Label("Start", systemImage: "play.fill").frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.green)
                 .disabled(!w.authorized)
+                Text(w.status).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(2)
             }
-            Text(w.status).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(2)
+            .padding(.horizontal)
         }
-        .padding(.horizontal)
         .task { if w.playlists.isEmpty { await w.loadPlaylists() } }
     }
 
-    private var live: some View {
+    // MARK: live, as the ring
+
+    @State private var crown = 0.0
+    @State private var crownBase = 0.0
+    @State private var menuOpen = false
+
+    private var ring: some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline) {
                 Text("\(Int(w.heartRate))").font(.system(size: 44, weight: .semibold, design: .rounded)).monospacedDigit()
@@ -90,14 +74,63 @@ struct ContentView: View {
                 Text(String(format: "%.2f km", w.distanceM / 1000))
             }
             .font(.footnote).foregroundStyle(.secondary)
-            HStack {
-                Button { w.togglePause() } label: { Image(systemName: w.paused ? "play.fill" : "pause.fill") }
-                    .tint(.yellow)
-                Button { w.end() } label: { Image(systemName: "stop.fill") }
-                    .tint(.red)
+            Spacer(minLength: 2)
+            Text(w.status).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
+        }
+        .padding(.horizontal)
+        .contentShape(Rectangle())
+        // Tap = ring tap (play/pause). Hold = ring hold (menu).
+        .onTapGesture { w.toggleMusic() }
+        .onLongPressGesture(minimumDuration: 0.5) { menuOpen = true }
+        // Crown = ring scroll. One detent per track, debounced like the ring.
+        .focusable(true)
+        .digitalCrownRotation($crown, from: -10_000, through: 10_000, by: 1, sensitivity: .low, isContinuous: false, isHapticFeedbackEnabled: true)
+        .onChange(of: crown) { v in
+            let d = v - crownBase
+            if abs(d) >= 1 { crownBase = v; w.crownScroll(forward: d > 0) }
+        }
+        .confirmationDialog("Bio HUD", isPresented: $menuOpen, titleVisibility: .visible) {
+            Button(w.paused ? "Resume timer" : "Pause timer") { w.togglePause() }
+            Button("Reset timer") { w.resetTimer() }
+            Button("Lens: \(w.brightnessName) → \(w.nextBrightnessName)") { w.cycleBrightness() }
+            Button("End workout", role: .destructive) { w.end() }
+            Button("Cancel", role: .cancel) {}
+        }
+    }
+
+    // MARK: live, as buttons
+
+    private var buttons: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                Button { w.prevTrack() } label: { Image(systemName: "backward.fill").frame(maxWidth: .infinity) }
+                Button { w.toggleMusic() } label: { Image(systemName: "playpause.fill").frame(maxWidth: .infinity) }
+                Button { w.skipTrack() } label: { Image(systemName: "forward.fill").frame(maxWidth: .infinity) }
             }
             .buttonStyle(.bordered)
-            Text(w.status).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
+            .tint(.green)
+            HStack(spacing: 8) {
+                Button { w.togglePause() } label: {
+                    Image(systemName: w.paused ? "play.fill" : "pause.fill").frame(maxWidth: .infinity)
+                }
+                .tint(.yellow)
+                Button { w.resetTimer() } label: {
+                    Image(systemName: "arrow.counterclockwise").frame(maxWidth: .infinity)
+                }
+                .tint(.orange)
+                Button { w.end() } label: {
+                    Image(systemName: "stop.fill").frame(maxWidth: .infinity)
+                }
+                .tint(.red)
+            }
+            .buttonStyle(.bordered)
+            Button { w.cycleBrightness() } label: {
+                Label("Lens \(w.brightnessName)", systemImage: w.brightness == 1 ? "sun.min" : w.brightness == 2 ? "sun.min.fill" : "sun.max.fill")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
+            .tint(.gray)
+            .font(.footnote)
         }
         .padding(.horizontal)
     }

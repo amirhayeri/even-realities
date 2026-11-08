@@ -22,6 +22,15 @@ final class WorkoutManager: NSObject, ObservableObject {
         }
         var location: HKWorkoutSessionLocationType { self == .strength || self == .hiit ? .indoor : .outdoor }
         var endpointType: String { rawValue.lowercased() }
+        var symbol: String {
+            switch self {
+            case .run: return "figure.run"
+            case .walk: return "figure.walk"
+            case .strength: return "dumbbell.fill"
+            case .cycle: return "figure.outdoor.cycle"
+            case .hiit: return "figure.highintensity.intensitytraining"
+            }
+        }
     }
 
     @Published var kind: Kind = .strength
@@ -174,6 +183,15 @@ final class WorkoutManager: NSObject, ObservableObject {
     var shownElapsed: TimeInterval { max(0, elapsed - resetBase) }
     func skipTrack() { uploader.control("/music/next") }
     func prevTrack() { uploader.control("/music/prev") }
+    /// Crown detents arrive in bursts; one track change per half second, like the ring.
+    private var lastCrown = Date.distantPast
+    func crownScroll(forward: Bool) {
+        guard Date().timeIntervalSince(lastCrown) >= 0.5 else { return }
+        lastCrown = Date()
+        if forward { skipTrack() } else { prevTrack() }
+    }
+    var brightnessName: String { ["", "dim", "medium", "bright"][brightness] }
+    var nextBrightnessName: String { ["", "dim", "medium", "bright"][brightness <= 1 ? 3 : brightness - 1] }
     func toggleMusic() { uploader.control("/music/toggle") }
     func resetTimer() {
         resetBase = elapsed
