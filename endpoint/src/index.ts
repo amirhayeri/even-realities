@@ -58,7 +58,9 @@ const D_KEY = 'display';
 interface Display { brightness: number; face: 'glucose' | 'classic' }   // face: classic = timer on top, no glucose
 let memControlAt = 0;
 const FAST_POLL_MS = 3_000, FAST_POLL_WINDOW_MS = 45_000;
+let memDisplay: Display | null = null;
 async function getDisplay(env: Env): Promise<Display> {
+  if (memDisplay) return { ...memDisplay };
   const d = await env.HUD.get(D_KEY, 'json') as Partial<Display> | null;
   const b = Number(d?.brightness);
   return { brightness: b >= 1 && b <= 3 ? Math.round(b) : 3, face: d?.face === 'classic' ? 'classic' : 'glucose' };
@@ -208,12 +210,14 @@ export default {
 
       if (path === '/display') {
         const d = await getDisplay(env);
+        let changed = false;
         const b = Number(body.brightness);
-        if (b >= 1 && b <= 3) d.brightness = Math.round(b);
-        else if (body.brightness === 'cycle') d.brightness = d.brightness <= 1 ? 3 : d.brightness - 1;
-        if (body.face === 'glucose' || body.face === 'classic') d.face = body.face;
-        else if (body.face === 'cycle') d.face = d.face === 'classic' ? 'glucose' : 'classic';
-        else return json({ error: 'brightness must be 1..3 or "cycle"' }, 400);
+        if (b >= 1 && b <= 3) { d.brightness = Math.round(b); changed = true; }
+        else if (body.brightness === 'cycle') { d.brightness = d.brightness <= 1 ? 3 : d.brightness - 1; changed = true; }
+        if (body.face === 'glucose' || body.face === 'classic') { d.face = body.face; changed = true; }
+        else if (body.face === 'cycle') { d.face = d.face === 'classic' ? 'glucose' : 'classic'; changed = true; }
+        if (!changed) return json({ error: 'send brightness (1..3 or "cycle") and/or face ("glucose", "classic" or "cycle")' }, 400);
+        memDisplay = d;                       // KV reads can lag a write by up to a minute
         await env.HUD.put(D_KEY, JSON.stringify(d));
         return json({ ok: true, brightness: d.brightness, face: d.face });
       }
