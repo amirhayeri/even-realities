@@ -42,3 +42,14 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: Bio HUD
         TARGETED_DEVICE_FAMILY: "4"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon   # BioHUDWatch/Assets.xcassets, 1024 px, drawn by ../docs/make-icons.py
+# Run from Xcode installs an optimised build with no debugger attached. A
+# debugger over Wi-Fi makes the Watch app crawl and freezes it when the Mac
+# drops off; this app is used at the gym, far from the Mac.
+schemes:
+  BioHUDWatch:
+    build:
+      targets:
+        BioHUDWatch: all
+    run:
+      config: Release
+      debugEnabled: false
