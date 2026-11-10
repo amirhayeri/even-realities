@@ -293,7 +293,7 @@ async function main() {
       const lines = workoutLines(s);
       pushText(IDS.l1, NAMES.l1, lines[0], 0);
       pushText(IDS.l2, NAMES.l2, lines[1], 1, DIM);
-      pushText(IDS.clock, NAMES.clock, ambientLeft(s), 2, 2);   // clock, plus glucose when the Worker has it
+      pushText(IDS.clock, NAMES.clock, clockText(s), 2, 2);     // glucose is on the activity tile during a workout
       pushText(IDS.date, NAMES.date, dateText(s), 3, 2);
       pushText(IDS.batt, NAMES.batt, batteryText(s) || ' ', 4, 2);
     } else {

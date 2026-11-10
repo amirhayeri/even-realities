@@ -20,6 +20,7 @@ const GLYPH: Record<string, string[]> = {
   '9': ['01110','10001','10001','01111','00001','00010','01100'],
   ':': ['00000','00100','00000','00000','00000','00100','00000'],
   ',': ['00000','00000','00000','00000','00000','00100','01000'],
+  '.': ['00000','00000','00000','00000','00000','00000','00100'],
   'Z': ['11111','00001','00010','00100','01000','10000','11111'],
 };
 
@@ -35,6 +36,12 @@ const ICON: Record<string, string[]> = {
   route: ['......###', '.....#..#', '......##.', '....#....', '...#.....', '..#......', '.##......', '###......', '.#.......'],
   flag:  ['#....', '####.', '#####', '####.', '#....', '#....', '#....'],
   play:  ['#....', '###..', '#####', '###..', '#....'],
+  // Glucose trend arrows, 7x7, drawn scaled next to the big number.
+  flat:       ['...#...', '....#..', '.....#.', '#######', '.....#.', '....#..', '...#...'],
+  up:         ['..#####', '.....##', '....#.#', '...#..#', '..#...#', '.#.....', '#......'],
+  down:       ['#......', '.#.....', '..#...#', '...#..#', '....#.#', '.....##', '..#####'],
+  doubleUp:   ['.#...#.', '###.###', '.#...#.', '.#...#.', '.#...#.', '.#...#.', '.#...#.'],
+  doubleDown: ['.#...#.', '.#...#.', '.#...#.', '.#...#.', '.#...#.', '###.###', '.#...#.'],
 };
 
 export function icon(ctx: CanvasRenderingContext2D, name: string, x: number, y: number, op = 0.6, scale = 1) {
@@ -60,7 +67,7 @@ export function dots(ctx: CanvasRenderingContext2D, text: string, x0: number, y0
   let cx = x0;
   for (const ch of text) {
     const g = GLYPH[ch] ?? GLYPH['0'];
-    const narrow = ch === ':' || ch === ',';
+    const narrow = ch === ':' || ch === ',' || ch === '.';
     const cols = narrow ? 2 : 5;
     for (let r = 0; r < 7; r++) for (let c = 0; c < cols; c++) {
       const bit = narrow ? g[r][2 + c] : g[r][c];
@@ -73,7 +80,7 @@ export function dots(ctx: CanvasRenderingContext2D, text: string, x0: number, y0
 
 export function measureDots(text: string, cell: number): number {
   let w = 0;
-  for (const ch of text) w += ((ch === ':' || ch === ',') ? 2 : 5) * cell + cell;
+  for (const ch of text) w += ((ch === ':' || ch === ',' || ch === '.') ? 2 : 5) * cell + cell;
   return w - cell;
 }
 
@@ -181,27 +188,34 @@ export function drawActivityTile(c: HTMLCanvasElement, s: HudState, blinkOn: boo
   const h = Math.floor(e / 3600), m = Math.floor((e % 3600) / 60), sec = e % 60;
   const timer = h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
   const running = w.active && !w.paused;
-  icon(ctx, running ? 'clock' : 'pause', 12, 16, 0.6, 1);
-  dots(ctx, timer, 30, 12, h > 0 ? 6 : 7, h > 0 ? 5 : 6, running ? 1 : (blinkOn ? 0.5 : 0.2));
+  const timerOp = running ? 1 : (blinkOn ? 0.5 : 0.2);
+  const g = s.glucose;
+  if (g) {
+    // Top: glucose, big, with its trend arrow. The timer drops to the middle, smaller.
+    const gw = dots(ctx, g.mmol.toFixed(1), 12, 12, 7, 6, 1);          // rows 12..60
+    icon(ctx, g.trend in ICON ? g.trend : 'flat', 12 + gw + 16, 16, 1, 6);   // 42x42
+    if (g.sim) label(ctx, 'sim', 276, 22, 'right', 10, 0.45);
+    icon(ctx, running ? 'clock' : 'pause', 12, 80, 0.6, 1);
+    dots(ctx, timer, 30, 74, 4, 3, timerOp);                            // rows 74..101
+  } else {
+    // No glucose feed: the timer keeps the top of the tile.
+    icon(ctx, running ? 'clock' : 'pause', 12, 16, 0.6, 1);
+    dots(ctx, timer, 30, 12, h > 0 ? 6 : 7, h > 0 ? 5 : 6, timerOp);
+  }
 
-  // Activity row: glyph + number, three columns.
-  icon(ctx, 'steps', 12, 78, 0.6, 1);
-  label(ctx, Math.round(w.steps).toLocaleString('en-US'), 26, 88, 'left', 18, 1);
-
-  icon(ctx, 'flame', 118, 78, 0.6, 1);
-  label(ctx, String(Math.round(w.activeKcal)), 132, 88, 'left', 18, 1);
-
+  // Bottom row: steps, energy, distance, each with its glyph; the Move ring ends the row.
+  icon(ctx, 'steps', 12, 122, 0.6, 1);
+  label(ctx, Math.round(w.steps).toLocaleString('en-US'), 26, 133, 'left', 18, 1);
+  icon(ctx, 'flame', 100, 122, 0.6, 1);
+  label(ctx, String(Math.round(w.activeKcal)), 114, 133, 'left', 18, 1);
   const km = w.distanceM / 1000;
+  icon(ctx, 'route', 168, 122, 0.6, 1);
+  label(ctx, km.toFixed(2), 182, 133, 'left', 18, 1);
+
+  // Pace sits above the ring, as before.
   const paceSec = km > 0.05 ? Math.round(w.elapsedSec / km) : 0;
   const pace = paceSec > 0 ? `${Math.floor(paceSec / 60)}:${pad(paceSec % 60)}` : '--:--';
-  icon(ctx, 'route', 196, 78, 0.6, 1);
-  label(ctx, km.toFixed(2), 210, 88, 'left', 18, 1);
   label(ctx, pace, 276, 106, 'right', 11, 0.5);
-
-  // Time-in-zone bar with a goal flag; no words.
-  ctx.fillStyle = lvl(0.18); ctx.fillRect(12, 128, 214, 2);
-  ctx.fillStyle = lvl(0.8); ctx.fillRect(12, 128, Math.round(214 * Math.min(1, w.inZoneSec / w.zoneGoalSec)), 2);
-  icon(ctx, 'flag', 228, 124, 0.45, 1);
 
   // Move ring, the one ring that matters mid-workout.
   ring(ctx, 262, 128, 11, 4, 1, 0.18);
