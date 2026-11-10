@@ -149,7 +149,7 @@ export function drawHrTile(c: HTMLCanvasElement, hr: number, hrMax: number, ageS
 
 /** Dim resting view, one tile in the top-left corner of the lens: heart rate
  *  first, then the minutes, a mini zone bar and the clock under them, all faint. */
-export function drawDimTile(c: HTMLCanvasElement, hr: number, hrMax: number, elapsedSec: number, paused: boolean, now: number) {
+export function drawDimTile(c: HTMLCanvasElement, hr: number, hrMax: number, elapsedSec: number, paused: boolean, now: number, glucose?: HudState['glucose']) {
   const ctx = c.getContext('2d')!;
   ctx.fillStyle = '#000'; ctx.fillRect(0, 0, TILE_W, TILE_H);
   const OP = 0.3;
@@ -177,6 +177,12 @@ export function drawDimTile(c: HTMLCanvasElement, hr: number, hrMax: number, ela
   if (z) { ctx.fillStyle = lvl(0.5); ctx.fillRect(x0 + (z.n - 1) * (segW + gap) + Math.round(z.within * (segW - 1)), 58, 1, 13); }
   const d = new Date(now);
   label(ctx, `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`, x0 + 5 * (segW + gap) + 20, 70, 'left', 12, OP);
+  // Row 3: glucose and its trend arrow, when the feed is on and the face shows it
+  if (glucose) {
+    const gw = dots(ctx, glucose.mmol.toFixed(1), x0, 86, 5, 4, OP + 0.05);
+    icon(ctx, glucose.trend in ICON ? glucose.trend : 'flat', x0 + gw + 10, 89, OP + 0.05, 4);
+    if (glucose.sim) label(ctx, 'sim', x0 + gw + 46, 118, 'left', 10, OP - 0.05);
+  }
 }
 
 export function drawActivityTile(c: HTMLCanvasElement, s: HudState, blinkOn: boolean) {

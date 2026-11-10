@@ -203,10 +203,11 @@ async function main() {
     const s = model.state, w = s.workout;
     if (!w.active) { dim = false; q.push('page', () => bridge.rebuildPageContainer(blankPageSpec())); lastText.fill(''); lastHrKey = ''; return; }
     const z = w.hr > 0 ? zoneOf(w.hr, w.hrMax).n : 0;
-    const key = `${z}|${Math.round(w.hr / 3)}|${Math.floor(w.elapsedSec / 60)}|${w.paused}|${Math.floor(s.now / 60_000)}`;   // HR to the nearest 3 bpm, minutes, clock minute
+    const g = s.display?.face === 'classic' ? undefined : s.glucose;
+    const key = `${z}|${Math.round(w.hr / 3)}|${Math.floor(w.elapsedSec / 60)}|${w.paused}|${Math.floor(s.now / 60_000)}|${g ? g.mmol.toFixed(1) + g.trend : ''}`;   // HR to the nearest 3 bpm, minutes, clock minute
     if (key === lastDimKey) return;
     lastDimKey = key;
-    drawDimTile(hrTile, w.hr, w.hrMax, w.elapsedSec, w.paused, s.now); pushImage(IDS.hr, NAMES.hr, hrTile);
+    drawDimTile(hrTile, w.hr, w.hrMax, w.elapsedSec, w.paused, s.now, g); pushImage(IDS.hr, NAMES.hr, hrTile);
     drawBlankTile(actTile); pushImage(IDS.act, NAMES.act, actTile);
     if (hasStrip) { drawBlankTile(songStrip); pushImage(IDS.song, NAMES.song, songStrip); }
     for (const [id, name, idx] of [[IDS.l1, NAMES.l1, 0], [IDS.l2, NAMES.l2, 1], [IDS.clock, NAMES.clock, 2], [IDS.date, NAMES.date, 3], [IDS.batt, NAMES.batt, 4]] as const) pushText(id, name, ' ', idx);
