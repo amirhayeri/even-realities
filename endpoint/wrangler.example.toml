@@ -20,6 +20,6 @@ OWNER_NAME = "Amir"            # first name on the hello screen
 KV_WRITE_MIN_MS = "5000"     # min ms between KV writes from /health (free KV: 1,000 writes/day). Paid plan: "0"
 # SPOTIFY_DEVICE_NAME = "Amir's iPhone"   # optional: pin playback to one device by its exact Spotify name
 ZONE_GOAL_SEC = "1800"
-# GLUCOSE_URL = "https://.../latest.json"   # optional, see README for the shape
+# GLUCOSE_URL = "https://.../latest.json"   # optional, see README for the shape; "sim" = built-in test curve, shown with a "sim" label
 
 # Secrets (wrangler secret put ...): HUD_TOKEN, SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET

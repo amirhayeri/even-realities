@@ -147,8 +147,20 @@ async function weather(env: Env): Promise<{ city: string; tempC: number; hi: num
   return { city: env.WEATHER_CITY, tempC: Math.round(j.current?.temperature_2m ?? 0), hi: Math.round(j.daily?.temperature_2m_max?.[0] ?? 0), lo: Math.round(j.daily?.temperature_2m_min?.[0] ?? 0), code: j.current?.weather_code ?? 0 };
 }
 
+/** GLUCOSE_URL = "sim": a plausible curve for testing the display. Marked
+ *  sim:true and the lens prints "sim" next to it, so it can never pass as real. */
+function simGlucose(now: number) {
+  const at = (t: number) => 6.5 + 1.8 * Math.sin(t / 2400) + 0.6 * Math.sin(t / 700);
+  const t = now / 1000;
+  const mmol = at(t), delta15 = mmol - at(t - 900);
+  const trend = delta15 > 0.5 ? 'doubleUp' : delta15 > 0.15 ? 'up' : delta15 < -0.5 ? 'doubleDown' : delta15 < -0.15 ? 'down' : 'flat';
+  const r1 = (n: number) => Math.round(n * 10) / 10;
+  return { mmol: r1(mmol), trend, delta15: r1(delta15), pred30: r1(at(t + 1800)), sim: true };
+}
+
 async function glucose(env: Env): Promise<unknown | null> {
   if (!env.GLUCOSE_URL) return null;
+  if (env.GLUCOSE_URL === 'sim') return simGlucose(Date.now());
   try {
     const r = await fetch(env.GLUCOSE_URL, { cf: { cacheTtl: 60 } } as any);
     return r.ok ? await r.json() : null;

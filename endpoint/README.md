@@ -67,7 +67,9 @@ interval as short as the app allows. The Worker reads its native payload.
 ## Glucose
 Set `GLUCOSE_URL` in `wrangler.toml` to a JSON endpoint returning
 `{"mmol": 5.8, "trend": "up", "delta15": 0.3, "pred30": 6.2}`; it is passed
-through to the glasses as `glucose`.
+through to the glasses as `glucose`. `GLUCOSE_URL = "sim"` serves a built-in
+test curve instead; the reply carries `sim: true` and the lens prints "sim"
+next to the number so it can never be mistaken for a real reading.
 
 ## Local test
 ```bash

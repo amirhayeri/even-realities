@@ -32,7 +32,7 @@ export interface HudState {
     queueCount: number;
   };
   rings: { move: number; moveGoal: number; exercise: number; exerciseGoal: number; stand: number; standGoal: number };
-  glucose?: { mmol: number; trend: Trend; delta15: number; pred30?: number };
+  glucose?: { mmol: number; trend: Trend; delta15: number; pred30?: number; sim?: boolean };
   battery: number | null;
   display?: { brightness: number };  // 1..3, image tiles are scaled by it (3 = full)
   pollMs?: number;                   // Worker hint: poll this fast for a moment after a Watch control (0 = none)
