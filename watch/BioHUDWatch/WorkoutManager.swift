@@ -156,7 +156,7 @@ final class WorkoutManager: NSObject, ObservableObject {
             b.beginCollection(withStart: now) { [weak self] ok, err in
                 Task { @MainActor in
                     guard let self else { return }
-                    if ok { self.running = true; self.paused = false; self.status = "live"; self.uploader.workoutStart(type: self.kind.endpointType, startedAt: now, playlist: self.playlist?.uri); self.startTimer() }
+                    if ok { self.running = true; self.paused = false; self.status = "live"; self.uploader.workoutStart(type: self.kind.endpointType, startedAt: now, playlist: self.playlist?.uri); self.uploader.control("/display", body: ["face": self.face]); self.startTimer() }
                     else {
                         let ns = err as NSError?
                         self.status = "start failed [\(ns?.code ?? 0)]: \(ns?.localizedDescription ?? "no error given")"
@@ -200,6 +200,18 @@ final class WorkoutManager: NSObject, ObservableObject {
     func cycleBrightness() {
         brightness = brightness <= 1 ? 3 : brightness - 1
         uploader.control("/display", body: ["brightness": brightness])
+    }
+
+    /// Lens face: "glucose" puts the CGM number on top of the workout tile,
+    /// "classic" keeps the timer there and hides glucose everywhere. Remembered
+    /// on the Watch and re-sent at each workout start so the lens always matches.
+    @Published var face: String = UserDefaults.standard.string(forKey: "lens.face") ?? "glucose"
+    var faceName: String { face == "classic" ? "Classic" : "Glucose" }
+    var nextFaceName: String { face == "classic" ? "Glucose" : "Classic" }
+    func toggleFace() {
+        face = face == "classic" ? "glucose" : "classic"
+        UserDefaults.standard.set(face, forKey: "lens.face")
+        uploader.control("/display", body: ["face": face])
     }
 
     func end() {

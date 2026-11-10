@@ -189,7 +189,7 @@ export function drawActivityTile(c: HTMLCanvasElement, s: HudState, blinkOn: boo
   const timer = h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${pad(m)}:${pad(sec)}`;
   const running = w.active && !w.paused;
   const timerOp = running ? 1 : (blinkOn ? 0.5 : 0.2);
-  const g = s.glucose;
+  const g = s.display?.face === 'classic' ? undefined : s.glucose;   // face is picked on the Watch
   if (g) {
     // Top: glucose, big, with its trend arrow. The timer drops to the middle, smaller.
     const gw = dots(ctx, g.mmol.toFixed(1), 12, 12, 7, 6, 1);          // rows 12..60

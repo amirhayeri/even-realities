@@ -34,7 +34,7 @@ export interface HudState {
   rings: { move: number; moveGoal: number; exercise: number; exerciseGoal: number; stand: number; standGoal: number };
   glucose?: { mmol: number; trend: Trend; delta15: number; pred30?: number; sim?: boolean };
   battery: number | null;
-  display?: { brightness: number };  // 1..3, image tiles are scaled by it (3 = full)
+  display?: { brightness: number; face?: 'glucose' | 'classic' };  // brightness 1..3 scales image tiles (3 = full); face classic hides glucose
   pollMs?: number;                   // Worker hint: poll this fast for a moment after a Watch control (0 = none)
 }
 
@@ -108,6 +108,8 @@ export function createMockModel(seed = Date.now()): Model {
     },
     rings: { move: 310, moveGoal: 600, exercise: 24, exerciseGoal: 30, stand: 9, standGoal: 12 },
     glucose: { mmol: 6.4, trend: 'down', delta15: -0.4, pred30: 5.6, sim: true },
+    // Preview only: add ?face=classic to the URL to see the face without glucose.
+    display: { brightness: 3, face: new URLSearchParams(location.search).get('face') === 'classic' ? 'classic' : 'glucose' },
     battery: 82,
   };
 
@@ -154,7 +156,7 @@ export function createMockModel(seed = Date.now()): Model {
     resetTimer() { state.workout.startedAt = Date.now(); state.workout.elapsedSec = 0; state.workout.inZoneSec = 0; state.workout.paused = false; },
     prevTrack() { trackIdx = (trackIdx + TRACKS.length - 1) % TRACKS.length; const t = TRACKS[trackIdx]; const s = state.spotify; s.title = t.title; s.artist = t.artist; s.durationMs = t.durationMs; s.positionMs = 0; },
     toggleMusic() { state.spotify.playing = !state.spotify.playing; },
-    cycleBrightness() { state.display = { brightness: nextBrightness(state.display?.brightness ?? 3) }; },
+    cycleBrightness() { state.display = { ...state.display, brightness: nextBrightness(state.display?.brightness ?? 3) }; },
     skipTrack() {
       trackIdx = (trackIdx + 1) % TRACKS.length;
       const t = TRACKS[trackIdx];
@@ -247,7 +249,7 @@ export function createRemoteModel(base: string, token: string, onStatus?: (msg: 
     },
     cycleBrightness() {
       const b = nextBrightness(state.display?.brightness ?? 3);
-      state.display = { brightness: b };
+      state.display = { ...state.display, brightness: b };
       fetch(`${root}/display${q}`, { method: 'POST', headers, body: JSON.stringify({ brightness: b }) }).catch(() => {});
     },
     refresh() { lastFetch = 0; },

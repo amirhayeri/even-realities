@@ -94,6 +94,7 @@ struct ContentView: View {
             Button(w.paused ? "Resume timer" : "Pause timer") { w.togglePause() }
             Button("Reset timer") { w.resetTimer() }
             Button("Lens: \(w.brightnessName) → \(w.nextBrightnessName)") { w.cycleBrightness() }
+            Button("Face: \(w.faceName) → \(w.nextFaceName)") { w.toggleFace() }
             Button("End workout", role: .destructive) { w.end() }
             Button("Cancel", role: .cancel) {}
         }
@@ -125,13 +126,20 @@ struct ContentView: View {
                 .tint(.red)
             }
             .buttonStyle(.bordered)
-            Button { w.cycleBrightness() } label: {
-                Label("Lens \(w.brightnessName)", systemImage: w.brightness == 1 ? "sun.min" : w.brightness == 2 ? "sun.min.fill" : "sun.max.fill")
-                    .frame(maxWidth: .infinity)
+            // Lens settings: brightness (sun grows with the level) and the face
+            // (drop = glucose on top, timer = classic, no glucose).
+            HStack(spacing: 8) {
+                Button { w.cycleBrightness() } label: {
+                    Image(systemName: w.brightness == 1 ? "sun.min" : w.brightness == 2 ? "sun.min.fill" : "sun.max.fill")
+                        .frame(maxWidth: .infinity)
+                }
+                Button { w.toggleFace() } label: {
+                    Image(systemName: w.face == "classic" ? "timer" : "drop.fill")
+                        .frame(maxWidth: .infinity)
+                }
             }
             .buttonStyle(.bordered)
             .tint(.gray)
-            .font(.footnote)
         }
         .padding(.horizontal)
     }

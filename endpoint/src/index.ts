@@ -55,13 +55,13 @@ const R_KEY = 'rings';
 // the image tiles (3 = full). controlAt is kept in memory only: it is a hint that
 // tells the glasses to poll fast for a moment after a control was pressed.
 const D_KEY = 'display';
-interface Display { brightness: number }
+interface Display { brightness: number; face: 'glucose' | 'classic' }   // face: classic = timer on top, no glucose
 let memControlAt = 0;
 const FAST_POLL_MS = 3_000, FAST_POLL_WINDOW_MS = 45_000;
 async function getDisplay(env: Env): Promise<Display> {
   const d = await env.HUD.get(D_KEY, 'json') as Partial<Display> | null;
   const b = Number(d?.brightness);
-  return { brightness: b >= 1 && b <= 3 ? Math.round(b) : 3 };
+  return { brightness: b >= 1 && b <= 3 ? Math.round(b) : 3, face: d?.face === 'classic' ? 'classic' : 'glucose' };
 }
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -211,9 +211,11 @@ export default {
         const b = Number(body.brightness);
         if (b >= 1 && b <= 3) d.brightness = Math.round(b);
         else if (body.brightness === 'cycle') d.brightness = d.brightness <= 1 ? 3 : d.brightness - 1;
+        if (body.face === 'glucose' || body.face === 'classic') d.face = body.face;
+        else if (body.face === 'cycle') d.face = d.face === 'classic' ? 'glucose' : 'classic';
         else return json({ error: 'brightness must be 1..3 or "cycle"' }, 400);
         await env.HUD.put(D_KEY, JSON.stringify(d));
-        return json({ ok: true, brightness: d.brightness });
+        return json({ ok: true, brightness: d.brightness, face: d.face });
       }
 
       if (path === '/workout/start') {

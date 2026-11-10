@@ -126,6 +126,6 @@ export function clockText(s: HudState): string {
 
 /** Ambient: the clock slot also carries glucose when the endpoint has it. */
 export function ambientLeft(s: HudState): string {
-  const g = s.glucose ? `${s.glucose.mmol.toFixed(1)} ${({ up: '↗', flat: '→', down: '↘', doubleUp: '⇈', doubleDown: '⇊' })[s.glucose.trend] ?? '→'}${s.glucose.sim ? ' sim' : ''}` : '';
+  const g = s.glucose && s.display?.face !== 'classic' ? `${s.glucose.mmol.toFixed(1)} ${({ up: '↗', flat: '→', down: '↘', doubleUp: '⇈', doubleDown: '⇊' })[s.glucose.trend] ?? '→'}${s.glucose.sim ? ' sim' : ''}` : '';
   return `${clockText(s)}   ${g}`.trim();
 }
