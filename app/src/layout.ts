@@ -14,7 +14,7 @@ export const TEXT_W = SCREEN_W - 2 * TEXT_X;
 export const IDS = { hr: 1, act: 2, song: 3, l1: 4, l2: 5, clock: 6, date: 7, batt: 8 } as const;
 export const NAMES = { hr: 'tile-hr', act: 'tile-act', song: 'strip-song', l1: 'line-1', l2: 'line-2', clock: 'clock', date: 'date', batt: 'batt' } as const;
 /** Bottom row is three containers side by side: the firmware wraps long space runs, so no padding tricks. */
-export const BOTTOM = { clock: { x: 12, w: 200 }, date: { x: 212, w: 200 }, batt: { x: 480, w: 84 } } as const;
+export const BOTTOM = { clock: { x: 12, w: 250 }, date: { x: 272, w: 200 }, batt: { x: 480, w: 84 } } as const;   // clock slot also holds "6.4 ↘ sim"
 /** Two text rows under the tiles, a 288x20 song-progress strip, then the clock bottom-left. */
 export const ROW_Y = [156, 194, 258] as const;
 export const STRIP = { x: 144, y: 234, w: 288, h: 20 } as const;

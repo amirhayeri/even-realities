@@ -107,7 +107,7 @@ export function createMockModel(seed = Date.now()): Model {
       next: { title: TRACKS[1].title, artist: TRACKS[1].artist }, queueCount: 3,
     },
     rings: { move: 310, moveGoal: 600, exercise: 24, exerciseGoal: 30, stand: 9, standGoal: 12 },
-    glucose: { mmol: 6.4, trend: 'down', delta15: -0.4, pred30: 5.6 },
+    glucose: { mmol: 6.4, trend: 'down', delta15: -0.4, pred30: 5.6, sim: true },
     battery: 82,
   };
 
