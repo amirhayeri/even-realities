@@ -157,7 +157,7 @@ final class WorkoutManager: NSObject, ObservableObject {
             b.beginCollection(withStart: now) { [weak self] ok, err in
                 Task { @MainActor in
                     guard let self else { return }
-                    if ok { self.running = true; self.paused = false; self.status = "live"; self.uploader.workoutStart(type: self.kind.endpointType, startedAt: now, playlist: self.playlist?.uri); self.uploader.control("/display", body: ["face": self.face]); self.startTimer() }
+                    if ok { self.running = true; self.paused = false; self.status = "live"; self.uploader.workoutStart(type: self.kind.endpointType, startedAt: now, playlist: self.playlist?.uri); self.uploader.control("/display", body: ["face": self.face]); self.startHeartRateQuery(from: now); self.startTimer() }
                     else {
                         let ns = err as NSError?
                         self.status = "start failed [\(ns?.code ?? 0)]: \(ns?.localizedDescription ?? "no error given")"
@@ -217,6 +217,7 @@ final class WorkoutManager: NSObject, ObservableObject {
 
     func end() {
         timer?.invalidate(); timer = nil
+        stopHeartRateQuery(); hrAge = 0
         // Leave the live screen at once. Before, the screen waited for HealthKit
         // to confirm the save; when that answer never came the numbers froze
         // and End did nothing, so the app could not be left.
@@ -236,6 +237,33 @@ final class WorkoutManager: NSObject, ObservableObject {
         }
     }
 
+    // Second heart rate source. The workout builder is the first; on a real
+    // session its heart rate stopped arriving while everything else kept
+    // running. This query reads the same sensor samples straight from Health,
+    // so one stalled feed no longer freezes the number.
+    private var hrQuery: HKAnchoredObjectQuery?
+    private var hrSampleAt = Date.distantPast
+    private func startHeartRateQuery(from start: Date) {
+        stopHeartRateQuery()
+        let unit = HKUnit.count().unitDivided(by: .minute())
+        let handle: (HKAnchoredObjectQuery, [HKSample]?, [HKDeletedObject]?, HKQueryAnchor?, Error?) -> Void = { [weak self] _, samples, _, _, _ in
+            guard let last = (samples as? [HKQuantitySample])?.max(by: { $0.endDate < $1.endDate }) else { return }
+            let bpm = last.quantity.doubleValue(for: unit), at = last.endDate
+            Task { @MainActor in
+                guard let self, self.running, at > self.hrSampleAt else { return }
+                self.hrSampleAt = at; self.heartRate = bpm; self.hrAge = Date().timeIntervalSince(at)
+            }
+        }
+        let q = HKAnchoredObjectQuery(type: HKQuantityType(.heartRate), predicate: HKQuery.predicateForSamples(withStart: start, end: nil), anchor: nil, limit: HKObjectQueryNoLimit, resultsHandler: handle)
+        q.updateHandler = handle
+        hrQuery = q
+        store.execute(q)
+    }
+    private func stopHeartRateQuery() {
+        if let q = hrQuery { store.stop(q) }
+        hrQuery = nil; hrSampleAt = .distantPast
+    }
+
     private func startTimer() {
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
@@ -250,7 +278,8 @@ final class WorkoutManager: NSObject, ObservableObject {
                 if zoneChanged { self.lastZone = z }
                 if zoneChanged || Date().timeIntervalSince(self.lastUpload) >= Double(self.uploader.nextMs) / 1000 {
                     self.lastUpload = Date()
-                    self.uploader.health(hr: self.heartRate > 0 ? self.heartRate : nil, steps: self.steps, kcal: self.activeKcal, distanceM: self.distanceM)
+                    self.uploader.health(hr: self.heartRate > 0 && self.hrAge < 60 ? self.heartRate : nil,   // never re-send an old reading as fresh: the lens then shows its own stale heart
+                                           steps: self.steps, kcal: self.activeKcal, distanceM: self.distanceM)
                     self.status = self.uploader.lastStatus.isEmpty ? "live" : self.uploader.lastStatus
                 }
             }
@@ -260,8 +289,11 @@ final class WorkoutManager: NSObject, ObservableObject {
     private func readStats() {
         guard let b = builder else { return }
         let hrStats = b.statistics(for: HKQuantityType(.heartRate))
-        if let hr = hrStats?.mostRecentQuantity()?.doubleValue(for: .count().unitDivided(by: .minute())) { heartRate = hr }
-        if let end = hrStats?.mostRecentQuantityDateInterval()?.end { hrAge = Date().timeIntervalSince(end) }
+        if let hr = hrStats?.mostRecentQuantity()?.doubleValue(for: .count().unitDivided(by: .minute())),
+           let at = hrStats?.mostRecentQuantityDateInterval()?.end, at > hrSampleAt {
+            hrSampleAt = at; heartRate = hr
+        }
+        if hrSampleAt > .distantPast { hrAge = Date().timeIntervalSince(hrSampleAt) }
         if let kcal = b.statistics(for: HKQuantityType(.activeEnergyBurned))?.sumQuantity()?.doubleValue(for: .kilocalorie()) { activeKcal = kcal }
         let distType: HKQuantityType = kind == .cycle ? HKQuantityType(.distanceCycling) : HKQuantityType(.distanceWalkingRunning)
         if let d = b.statistics(for: distType)?.sumQuantity()?.doubleValue(for: .meter()) { distanceM = d }
