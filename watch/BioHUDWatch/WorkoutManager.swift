@@ -215,16 +215,21 @@ final class WorkoutManager: NSObject, ObservableObject {
     }
 
     func end() {
-        guard let session, let builder else { return }
         timer?.invalidate(); timer = nil
-        session.end()
-        builder.endCollection(withEnd: Date()) { [weak self] _, _ in
-            builder.finishWorkout { _, _ in
+        // Leave the live screen at once. Before, the screen waited for HealthKit
+        // to confirm the save; when that answer never came the numbers froze
+        // and End did nothing, so the app could not be left.
+        let s = session, b = builder
+        session = nil; builder = nil
+        running = false; paused = false; resetBase = 0; status = "saving…"
+        uploader.workoutEnd()
+        guard let s, let b else { status = "ended"; return }
+        s.end()
+        b.endCollection(withEnd: Date()) { [weak self] _, _ in
+            b.finishWorkout { _, err in
                 Task { @MainActor in
-                    guard let self else { return }
-                    self.running = false; self.paused = false; self.status = "saved"; self.resetBase = 0
-                    self.uploader.workoutEnd()
-                    self.session = nil; self.builder = nil
+                    guard let self, !self.running else { return }
+                    self.status = err == nil ? "saved" : "ended, not saved: \(err!.localizedDescription)"
                 }
             }
         }
