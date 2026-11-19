@@ -39,6 +39,7 @@ final class WorkoutManager: NSObject, ObservableObject {
     @Published var running = false
     @Published var paused = false
     @Published var heartRate: Double = 0
+    @Published var hrAge: TimeInterval = 0        // seconds since the last heart rate sample
     @Published var steps: Double = 0
     @Published var activeKcal: Double = 0
     @Published var distanceM: Double = 0
@@ -258,7 +259,9 @@ final class WorkoutManager: NSObject, ObservableObject {
 
     private func readStats() {
         guard let b = builder else { return }
-        if let hr = b.statistics(for: HKQuantityType(.heartRate))?.mostRecentQuantity()?.doubleValue(for: .count().unitDivided(by: .minute())) { heartRate = hr }
+        let hrStats = b.statistics(for: HKQuantityType(.heartRate))
+        if let hr = hrStats?.mostRecentQuantity()?.doubleValue(for: .count().unitDivided(by: .minute())) { heartRate = hr }
+        if let end = hrStats?.mostRecentQuantityDateInterval()?.end { hrAge = Date().timeIntervalSince(end) }
         if let kcal = b.statistics(for: HKQuantityType(.activeEnergyBurned))?.sumQuantity()?.doubleValue(for: .kilocalorie()) { activeKcal = kcal }
         let distType: HKQuantityType = kind == .cycle ? HKQuantityType(.distanceCycling) : HKQuantityType(.distanceWalkingRunning)
         if let d = b.statistics(for: distType)?.sumQuantity()?.doubleValue(for: .meter()) { distanceM = d }
@@ -272,13 +275,21 @@ extension WorkoutManager: HKWorkoutSessionDelegate {
             switch to {
             case .running: self.paused = false
             case .paused: self.paused = true
+            case .ended, .stopped:
+                // watchOS ended the session under us (another workout started, a
+                // system hiccup). Without this the screen kept showing the last
+                // heart rate forever. Only acts if this is still our live session.
+                if self.running, self.session === s { self.end(); self.status = "session ended by watchOS" }
             default: break
             }
         }
     }
     nonisolated func workoutSession(_ s: HKWorkoutSession, didFailWithError error: Error) {
         let ns = error as NSError
-        Task { @MainActor in self.status = "session failed [\(ns.domain) \(ns.code)]: \(ns.localizedDescription)" }
+        Task { @MainActor in
+            if self.running, self.session === s { self.end() }
+            self.status = "session failed [\(ns.domain) \(ns.code)]: \(ns.localizedDescription)"
+        }
     }
 }
 

@@ -64,7 +64,8 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 2) {
                 HStack(alignment: .firstTextBaseline) {
                     Text("\(Int(w.heartRate))").font(.system(size: 40, weight: .semibold, design: .rounded)).monospacedDigit()
-                    Text("bpm").foregroundStyle(.secondary)
+                    // A reading older than 30 s is shown as stale, never as live.
+                    Text(w.hrAge > 30 ? "\(Int(w.hrAge))s old" : "bpm").foregroundStyle(w.hrAge > 30 ? .orange : .secondary)
                     Spacer()
                     Text(timeString(w.shownElapsed)).font(.title3).monospacedDigit().foregroundStyle(w.paused ? .yellow : .primary)
                 }
